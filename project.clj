@@ -12,7 +12,8 @@
                  [org.apache.ant/ant-junit "1.9.7"]
                  [org.apache.ant/ant "1.9.7"]]
 
-  :plugins [[lein-codox "0.10.2"]]
+  :plugins [[lein-pprint "1.1.2"]
+            [lein-codox "0.10.2"]]
 
   :profiles {:provided {:dependencies
                         [[net.mikera/cljunit "0.6.0" :scope "test"]
