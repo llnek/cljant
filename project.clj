@@ -1,4 +1,4 @@
-(defproject czlab/czlab-antclj "0.1.0"
+(defproject io.czlab/antclj "0.1.0"
 
   :description "Apache ant wrapped in clojure"
   :url "https://github.com/llnek/antclj"
@@ -26,7 +26,7 @@
   :target-path "out/%s"
   :aot :all
 
-  :java-source-paths ["src/main/java" "test/main/java"]
+  :java-source-paths ["src/main/java" "src/test/java"]
   :source-paths ["src/main/clojure"]
   :test-paths ["src/test/clojure"]
   :resource-paths ["src/main/resources"]

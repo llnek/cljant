@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>czlab</groupId>
-  <artifactId>czlab-antclj</artifactId>
+  <groupId>io.czlab</groupId>
+  <artifactId>antclj</artifactId>
   <packaging>jar</packaging>
   <version>0.1.0</version>
-  <name>czlab-antclj</name>
+  <name>antclj</name>
   <description>Apache ant wrapped in clojure</description>
   <url>https://github.com/llnek/antclj</url>
   <licenses>
@@ -16,7 +16,7 @@
   <scm>
     <connection>scm:git:git://github.com/llnek/antclj.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/llnek/antclj.git</developerConnection>
-    <tag>1130765a437c659826d559836024db69e12d3dc3
+    <tag>524230530a4b6befce259d03698f6dbf9d0581a3
 </tag>
     <url>https://github.com/llnek/antclj</url>
   </scm>
@@ -50,7 +50,7 @@
             <configuration>
               <sources>
                 <source>src/main/java</source>
-                <source>test/main/java</source>
+                <source>src/test/java</source>
               </sources>
             </configuration>
           </execution>
