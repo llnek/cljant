@@ -24,6 +24,7 @@ public/pages/
 .lein-failures
 .lein-plugins
 .lein-repl-history
+/pom.xml
 
 .nrepl*
 
