@@ -13,6 +13,7 @@
                  [org.apache.ant/ant "1.9.7"]]
 
   :plugins [[lein-pprint "1.1.2"]
+            [lein-czlab "0.1.0"]
             [lein-codox "0.10.2"]]
 
   :profiles {:provided {:dependencies
@@ -22,9 +23,12 @@
                          [codox/codox "0.10.2" :scope "provided"]]}
              :uberjar {:aot :all}}
 
-  :global-vars {*warn-on-reflection* true}
+  :global-vars {*warn-on-reflection* false}
   :target-path "out/%s"
   :aot :all
+
+  :hooks [leiningen.lein-czlab]
+  :root-package "czlab"
 
   :java-source-paths ["src/main/java" "src/test/java"]
   :source-paths ["src/main/clojure"]
