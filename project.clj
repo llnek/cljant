@@ -9,10 +9,10 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
-                 ;;[org.apache.ant/ant-launcher "1.9.7"]
-                 [org.apache.ant/ant-junit4 "1.9.7"]
-                 [org.apache.ant/ant-junit "1.9.7"]
-                 [org.apache.ant/ant "1.9.7"]]
+                 ;;[org.apache.ant/ant-launcher "1.10.0"]
+                 [org.apache.ant/ant-junit4 "1.10.0"]
+                 [org.apache.ant/ant-junit "1.10.0"]
+                 [org.apache.ant/ant "1.10.0"]]
 
   :plugins [[lein-pprint "1.1.2"]
             [lein-czlab "0.1.0"]
