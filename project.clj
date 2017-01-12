@@ -4,11 +4,9 @@
 
   :license {:url "http://www.eclipse.org/legal/epl-v10.html"
             :name "Eclipse Public License"}
+  :url "https://github.com/llnek/antclj"
 
   :description "Apache ant wrapped in clojure"
-
-  ;;:scm "https://github.com/llnek/antclj.git"
-  :url "https://github.com/llnek/antclj"
 
   :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
                  ;;[org.apache.ant/ant-launcher "1.10.0"]
