@@ -2,11 +2,13 @@
 ;;
 (defproject io.czlab/antclj "0.1.0"
 
-  :description "Apache ant wrapped in clojure"
-  :url "https://github.com/llnek/antclj"
+  :license {:url "http://www.eclipse.org/legal/epl-v10.html"
+            :name "Eclipse Public License"}
 
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :description "Apache ant wrapped in clojure"
+
+  ;;:scm "https://github.com/llnek/antclj.git"
+  :url "https://github.com/llnek/antclj"
 
   :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
                  ;;[org.apache.ant/ant-launcher "1.10.0"]
@@ -15,7 +17,7 @@
                  [org.apache.ant/ant "1.10.0"]]
 
   :plugins [[lein-pprint "1.1.2"]
-            [lein-czlab "0.1.0"]
+            [lein-czlab "0.1.1"]
             [lein-codox "0.10.2"]]
   :hooks [leiningen.lein-czlab]
 
@@ -28,8 +30,9 @@
 
   :global-vars {*warn-on-reflection* false}
   :target-path "out/%s"
+  :omit-source true
   :aot :all
-  :root-package "czlab"
+  :coordinate! "czlab"
 
   :java-source-paths ["src/main/java" "src/test/java"]
   :source-paths ["src/main/clojure"]
