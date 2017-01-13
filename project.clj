@@ -15,9 +15,7 @@
                  [org.apache.ant/ant "1.10.0"]]
 
   :plugins [[lein-pprint "1.1.2"]
-            [lein-czlab "0.1.1"]
             [lein-codox "0.10.2"]]
-  :hooks [leiningen.lein-czlab]
 
   :profiles {:provided {:dependencies
                         [[net.mikera/cljunit "0.6.0" :scope "test"]
