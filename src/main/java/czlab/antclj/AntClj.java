@@ -18,7 +18,8 @@ package czlab.antclj;
 /**
  * @author Kenneth Leung
  */
-public class Antlib {
+public class AntClj {
+
 }
 
 
