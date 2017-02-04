@@ -1,16 +1,10 @@
-;; Licensed under the Apache License, Version 2.0 (the "License");
-;; you may not use this file except in compliance with the License.
-;; You may obtain a copy of the License at
-;;
-;;     http://www.apache.org/licenses/LICENSE-2.0
-;;
-;; Unless required by applicable law or agreed to in writing, software
-;; distributed under the License is distributed on an "AS IS" BASIS,
-;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-;; See the License for the specific language governing permissions and
-;; limitations under the License.
-;;
-;; Copyright (c) 2013-2016, Kenneth Leung. All rights reserved.
+;; Copyright (c) 2013-2017, Kenneth Leung. All rights reserved.
+;; The use and distribution terms for this software are covered by the
+;; Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;; which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by
+;; the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns ^{:doc "Apache Ant project & task wrappers.
            The anatomy of an ant task is a xml construct,
@@ -99,13 +93,7 @@
 ;;
 (defn- capstr
   "Capitalize the 1st character"
-  ^String
-  [^String s]
-  (if (and (some? s)
-           (not (.isEmpty s)))
-    (str (.toUpperCase (.substring s 0 1))
-         (.substring s 1))
-    s))
+  ^String [s] (if s (cs/capitalize s) s))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -126,7 +114,7 @@
   (let [tmp (System/getProperty "java.io.tmpdir")
         f (io/file tmp "czlab-antlogansi.colors")]
     (if-not (.exists f)
-      (spit f ansi-colors :encoding "utf-8"))
+      (spit f ansi-colors))
     (System/setProperty "ant.logger.defaults"
                         (.getCanonicalPath f))))
 
@@ -171,8 +159,7 @@
     (reduce
       #(assoc! %1 (keyword (gpdn %2)) %2)
       (transient {})
-      (-> (Introspector/getBeanInfo cz)
-          (.getPropertyDescriptors)))))
+      (-> (Introspector/getBeanInfo cz) .getPropertyDescriptors))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;create a default project.
@@ -184,7 +171,8 @@
 (if-not @beansCooked
   (let [beans (atom {})
         syms (atom [])]
-    (doseq [[k v] (.getTaskDefinitions ^Project @dftprj)]
+    (doseq [[k v] (. ^Project
+                     @dftprj getTaskDefinitions)]
       (when (.isAssignableFrom Task v)
         (swap! syms
                conj
@@ -276,9 +264,9 @@
   [^Method wm pojo k arr]
   (try
     (.invoke wm pojo arr)
-  (catch Throwable e#
+  (catch Throwable _
     (println (str "failed to set " k " for " (class pojo)))
-    (throw e#))))
+    (throw _))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -403,9 +391,10 @@
   ""
   [^FormatterElement tk options]
   (if-some [[k v] (find options :type)]
-    (.setType tk
-              (doto (FormatterElement$TypeAttribute.)
-                (.setValue (str v)))))
+    (. tk
+       setType
+       (doto (FormatterElement$TypeAttribute.)
+         (.setValue (str v)))))
   [options #{:type}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -574,18 +563,18 @@
   [^JUnitTask tk options]
 
   (if-some [v (:printsummary options)]
-    (.setPrintsummary
-      tk
-      (doto
-        (JUnitTask$SummaryAttribute.)
-        (.setValue (str v)))))
+    (. tk
+       setPrintsummary
+       (doto
+         (JUnitTask$SummaryAttribute.)
+         (.setValue (str v)))))
 
   (if-some [v (:forkMode options)]
-    (.setForkMode
-      tk
-      (doto
-        (JUnitTask$ForkMode.)
-        (.setValue (str v)))))
+    (. tk
+       setForkMode
+       (doto
+         (JUnitTask$ForkMode.)
+         (.setValue (str v)))))
 
   [options #{:printsummary :forkMode}])
 
@@ -595,11 +584,11 @@
   ""
   [^Javadoc tk options]
   (if-some [v (:access options)]
-    (.setAccess
-      tk
-      (doto
-        (Javadoc$AccessType.)
-        (.setValue (str v)))))
+    (. tk
+       setAccess
+       (doto
+         (Javadoc$AccessType.)
+         (.setValue (str v)))))
   [options #{:access}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -608,11 +597,11 @@
   ""
   [^Tar tk options]
   (if-some [v (:compression options)]
-    (.setCompression
-      tk
-      (doto
-        (Tar$TarCompressionMethod.)
-        (.setValue (str v)))))
+    (. tk
+       setCompression
+       (doto
+         (Tar$TarCompressionMethod.)
+         (.setValue (str v)))))
   [options #{:compression}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -645,11 +634,11 @@
   "Bind all the tasks to a target and a project"
   ^Target
   [^String target tasks]
-  {:pre [(coll? tasks)]}
+  {:pre [(sequential? tasks)]}
   (let [pj @dftprj
         tg (Target.)]
-    (.setName tg (or target ""))
-    (.addOrReplaceTarget ^Project pj tg)
+    (. tg setName (or target ""))
+    (. ^Project pj addOrReplaceTarget tg)
     ;;(println (str "number of tasks ==== " (count tasks)))
     (doseq [t tasks]
       (init-task pj tg t))
@@ -668,7 +657,7 @@
 (defn runTarget
   "Run ant tasks"
   [target tasks]
-  {:pre [(coll? tasks)]}
+  {:pre [(sequential? tasks)]}
   (-> (projAntTasks target tasks)
       (execTarget)))
 
@@ -681,7 +670,7 @@
 ;;
 (defn runTasks
   "Run ant tasks"
-  [tasks] {:pre [(coll? tasks)]} (runTarget "" tasks))
+  [tasks] {:pre [(sequential? tasks)]} (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -775,7 +764,7 @@
          (antDelete
            {:removeNotFollowedSymlinks true
             :quiet quiet}
-           [[:fileset {:followSymlinks false :dir dir} ]]))))))
+           [[:fileset {:followSymlinks false :dir dir}]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

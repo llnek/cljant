@@ -28,6 +28,7 @@
 
   (is (string? "that's all folks!")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;EOF
 
-;;(clojure.test/run-tests 'czlab.test.antclj.test)
 
