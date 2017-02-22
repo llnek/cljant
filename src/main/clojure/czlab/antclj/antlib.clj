@@ -796,11 +796,11 @@
 
   ([link target] (symLink link target true))
   ([link target overwrite?]
-    (runTasks*
-      (antSymlink {:overwrite overwrite?
-                   :action "single"
-                   :link link
-                   :resource target}))))
+   (runTasks*
+     (antSymlink {:overwrite overwrite?
+                  :action "single"
+                  :link link
+                  :resource target}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF

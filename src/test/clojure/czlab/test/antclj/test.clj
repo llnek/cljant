@@ -25,7 +25,8 @@
 (defn- uid "" ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
 (defn- ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
 (defn- ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
-
+(def ^:private javac (str
+                       (System/getenv "JAVA_HOME") "/bin/javac"))
 (def
   ^:private
   javacode
@@ -43,6 +44,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (deftest czlabtestantclj-test
+
+  #_
+  (is (do
+        (println "JAVA_HOME= " (System/getenv "JAVA_HOME"))
+        (System/setProperty "java.home" (System/getenv "JAVA_HOME"))
+        true))
 
   (is (let [d (ctd<>)
             f (ctf<>)
@@ -100,6 +107,42 @@
             _ (symUnlink (.getCanonicalPath g))
             ok2 (not (.exists g))]
         (and ok ok2)))
+
+  (is (let [root (ctd<>)
+            src (ctd<> root "x")
+            out (ctd<>)
+            _ (.mkdirs src)
+            tn (uid)
+            f (io/file src "Test.java")
+            _ (spit f javacode)
+            _
+            (runTasks*
+              (antJavac
+                {:srcdir (.getCanonicalPath root)
+                 :destdir (.getCanonicalPath out)
+                 :target "8"
+                 :executable javac
+                 :debugLevel "lines,vars,source"
+                 :includeantruntime false
+                 :debug true
+                 :fork true}
+                [[:compilerarg {:line "-Xlint:deprecation"}]
+                 [:include "**/*.java"]
+                 [:classpath
+                  [[:location (.getCanonicalPath tmpdir)]
+                   [:fileset {:dir tmpdir
+                              :includes "**/*.jar"}]]]])
+              (antSleep {:seconds "2"})
+              (antJava
+                {:classname "x.Test"
+                 :fork true
+                 :failonerror true}
+                [[:argvalues [tn]]
+                 [:classpath
+                  [[:location (.getCanonicalPath out)]]]])
+              (antSleep {:seconds "2"}))
+            z (io/file tmpdir tn)]
+        (= "hello" (slurp z))))
 
   (is (string? "that's all folks!")))
 
