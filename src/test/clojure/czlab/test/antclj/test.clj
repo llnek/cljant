@@ -46,9 +46,9 @@
 (deftest czlabtestantclj-test
 
   #_
-  (is (do
-        (println "JAVA_HOME= " (System/getenv "JAVA_HOME"))
-        (System/setProperty "java.home" (System/getenv "JAVA_HOME"))
+  (is (let [_
+            (runTasks*
+              (antGenkey {} []))]
         true))
 
   (is (let [d (ctd<>)

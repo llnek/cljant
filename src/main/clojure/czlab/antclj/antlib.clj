@@ -35,7 +35,13 @@
             Jar
             Zip
             ExecTask
-            Javac]
+            Javac
+            Javadoc$AccessType
+            Replace$Replacefilter
+            Replace$NestedString
+            Tar$TarFileSet
+            Tar$TarCompressionMethod
+            Javac$ImplementationSpecificArgument]
            [org.apache.tools.ant.listener
             AnsiColorLogger
             TimestampedLogger]
@@ -44,12 +50,14 @@
             Commandline$Marker
             PatternSet$NameEntry
             Environment$Variable
+            ZipFileSet
             Reference
             Mapper
             FileSet
             Path
             DirSet]
            [org.apache.tools.ant
+            ProjectComponent
             NoBannerLogger
             Project
             Target
@@ -65,14 +73,7 @@
            [org.apache.tools.ant.util
             FileNameMapper
             ChainedMapper
-            GlobPatternMapper]
-           [org.apache.tools.ant.taskdefs
-            Javadoc$AccessType
-            Replace$Replacefilter
-            Replace$NestedString
-            Tar$TarFileSet
-            Tar$TarCompressionMethod
-            Javac$ImplementationSpecificArgument])
+            GlobPatternMapper])
 
   (:require [clojure.java.io :as io]
             [clojure.string :as cs]))
@@ -156,14 +157,17 @@
 ;;cache ant task names as symbols, and cache bean-info of class
 (if-not @beansCooked
   (let [beans (atom {})
+        kees (atom [])
         syms (atom [])]
     (doseq [[k v] (. ^Project
                      @dftprj getTaskDefinitions)]
+      (swap! kees conj k)
       (when (.isAssignableFrom Task v)
         (swap! syms
                conj
                (str "ant" (capstr k)) k)
         (swap! beans assoc v (getBeanInfo v))))
+    ;;(println "syms = " @kees)
     (def ^:private _tasks (atom (partition 2 (map #(symbol %) @syms))))
     (def ^:private _props (atom @beans))
     (reset! beansCooked true)))
@@ -268,11 +272,13 @@
   ([pj pojo options]
    (setOptions pj pojo options nil))
 
-  ([pj pojo options skips]
+  ([^Project pj pojo options skips]
    (let [arr (object-array 1)
          cz (class pojo)
          ps (or (get @_props cz)
                 (maybeProps cz))]
+     (if (instance? ProjectComponent pojo)
+       (. ^ProjectComponent pojo setProject pj))
      (doseq [[k v] options
              :when (not (contains? skips k))]
        (if-some [^PropertyDescriptor
@@ -296,118 +302,59 @@
            (setProp! pojo k arr))
          (trap! (str "prop['" k "'] not in " cz)))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- antTarFileSet
-  "Configure a TarFileSet Object"
-  {:tag Tar$TarFileSet}
-
-  ([^Project pj ^Tar$TarFileSet fs options nested]
-   (setOptions pj fs options)
-   (.setProject fs pj)
-   (maybeCfgNested pj fs nested)
-   fs)
-  ([pj fs options]
-   (antTarFileSet pj fs options nil))
-  ([pj fs] (antTarFileSet pj fs nil nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- antFileSet
-  "Create a FileSet Object"
-  {:tag FileSet}
+(defn- antProjComponent<>
+  "Configure a project component"
+  {:tag ProjectComponent}
 
-  ([pj options]
-   (antFileSet pj options nil))
-  ([pj]
-   (antFileSet pj nil nil))
-  ([^Project pj options nested]
-   (let [fs (FileSet.)]
-     (setOptions pj
-                 fs
-                 (-> {:errorOnMissingDir false}
-                     (merge options)))
-     (.setProject fs pj)
-     (maybeCfgNested pj fs nested)
-     fs)))
+  ([^Project pj ^ProjectComponent pc options nested]
+   (if (fn? options)
+     (options pj pc)
+     (setOptions pj pc options))
+   (if (fn? nested)
+     (nested pj pc)
+     (maybeCfgNested pj pc nested))
+   pc)
+  ([pj pc options]
+   (antProjComponent<> pj pc options nil))
+  ([pj pc] (antProjComponent<> pj pc nil nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- antBatchTest
-  "Configure a BatchTest Object"
-  {:tag BatchTest}
-
-  ([^Project pj ^BatchTest bt options nested]
-   (setOptions pj bt options)
-   (maybeCfgNested pj bt nested)
-   bt)
-  ([pj bt options]
-   (antBatchTest pj bt options nil))
-  ([pj bt]
-   (antBatchTest pj bt nil nil)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- antJunitTest
-  "Configure a single JUnit Test Object"
-  {:tag JUnitTask }
-
-  ([pj] (antJunitTest pj nil nil))
-  ([pj options]
-   (antJunitTest pj options nil))
-  ([^Project pj options nested]
-   (let [jt (JUnitTest.)]
-     (setOptions pj jt options)
-     (maybeCfgNested pj jt nested)
-     jt)))
+(defmacro ^:private antFileSet
+  "" [options] `(merge {:errorOnMissingDir false} ~options))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- antChainedMapper
   "Handles glob only"
-  {:tag FileNameMapper}
+  ^ProjectComponent [nested pj cm]
 
-  ([pj options]
-   (antChainedMapper pj options nil))
-  ([pj]
-   (antChainedMapper pj nil nil))
-  ([^Project pj options nested]
-   (let [cm (ChainedMapper.)]
-     (setOptions pj cm options)
-     (doseq [n nested]
-       (case (:type n)
-         :glob
-         (->> (doto (GlobPatternMapper.)
-                (.setFrom (:from n))
-                (.setTo (:to n)))
-              (.add cm))
-         (trap! (str "unknown mapper: " n))))
-     cm)))
+  (doseq [n nested]
+    (case (:type n)
+      :glob
+      (->> (doto (GlobPatternMapper.)
+             (.setFrom (:from n))
+             (.setTo (:to n)))
+           (. ^ChainedMapper cm add ))
+      (trap! (str "unknown mapper: " n))))
+  cm)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- fmtr-preopts "" [tk options]
+(defn- antFormatter ""
+  ^ProjectComponent [options pj tk]
+
   (if-some
     [[k v] (find options :type)]
     (. ^FormatterElement tk
        setType
        (doto (FormatterElement$TypeAttribute.)
          (.setValue (str v)))))
-  [options #{:type}])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- antFormatter
-  "Create a Formatter Object"
-  {:tag FormatterElement }
-
-  ([pj options] (antFormatter pj options nil))
-  ([pj] (antFormatter pj nil nil))
-  ([^Project pj options nested]
-   (let [fe (FormatterElement.)]
-     (apply setOptions pj fe (fmtr-preopts fe options))
-     (.setProject fe pj)
-     fe)))
+  (setOptions pj tk options #{:type})
+  tk)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -424,9 +371,11 @@
       (trap! "path:refid not supported")
       ;;(doto (.createPath root) (.setRefid (last p)))
       :fileset
-      (->> (antFileSet pj
-                       (if (> (count p) 1)(nth p 1) {})
-                       (if (> (count p) 2)(nth p 2) []))
+      (->> (antProjComponent<>
+             pj
+             (FileSet.)
+             (antFileSet (if (> (count p) 1)(nth p 1)))
+             (if (> (count p) 2)(nth p 2) []))
            (.addFileset root))
       (trap! (str "unknown path: " p))))
   root)
@@ -454,7 +403,10 @@
              (.addSysproperty tk)))
 
       :formatter
-      (->> (antFormatter pj (last p))
+      (->> (antProjComponent<>
+             pj
+             (FormatterElement.)
+             (partial antFormatter (last p)))
            (.addFormatter tk))
 
       :include
@@ -470,9 +422,10 @@
               (.setName v))))
 
       :fileset
-      (let [s (antFileSet
+      (let [s (antProjComponent<>
                 pj
-                (if (> (count p) 1)(nth p 1) {})
+                (FileSet.)
+                (antFileSet (if (> (count p) 1)(nth p 1)))
                 (if (> (count p) 2)(nth p 2) []))]
         (if (instance? BatchTest tk)
           (.addFileSet tk s)
@@ -507,17 +460,20 @@
           (.addText (:text (last p))))
 
       :test
-      (->> (antJunitTest
+      (->> (antProjComponent<>
              pj
+             (JUnitTest.)
              (if (> (count p) 1)(nth p 1) {})
              (if (> (count p) 2)(nth p 2) []))
            (.addTest tk))
 
       :chainedmapper
-      (->> (antChainedMapper
+      (->> (antProjComponent<>
              pj
+             (ChainedMapper.)
              (if (> (count p) 1)(nth p 1) {})
-             (if (> (count p) 2)(nth p 2) []))
+             (partial antChainedMapper
+                      (if (> (count p) 2)(nth p 2))))
            (.add tk))
 
       :targetfile
@@ -527,16 +483,26 @@
       (.createSrcfile tk)
 
       :batchtest
-      (antBatchTest
+      (antProjComponent<>
         pj
         (.createBatchTest tk)
         (if (> (count p) 1)(nth p 1) {})
         (if (> (count p) 2)(nth p 2) []))
 
       :tarfileset
-      (antTarFileSet
+      (antProjComponent<>
         pj
         (.createTarFileSet tk)
+        (if (> (count p) 1)(nth p 1) {})
+        (if (> (count p) 2)(nth p 2) []))
+
+      :zipfileset
+      (antProjComponent<>
+        pj
+        (let [z (ZipFileSet.)]
+          (. ^Zip tk
+             addZipfileset z)
+          z)
         (if (> (count p) 1)(nth p 1) {})
         (if (> (count p) 2)(nth p 2) []))
 
