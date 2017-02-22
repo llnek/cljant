@@ -87,13 +87,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defmacro ^:private fopt "" [o t] `(find ~o ~t))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 (defn- capstr
   "Capitalize the 1st character"
-  ^String [s] (if s (cs/capitalize s) s))
+  ^String [s] (if s (cs/capitalize (name s)) ""))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -108,53 +104,43 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- hackAnsiColors
-  ""
-  []
-  (let [tmp (System/getProperty "java.io.tmpdir")
-        f (io/file tmp "czlab-antlogansi.colors")]
-    (if-not (.exists f)
-      (spit f ansi-colors))
+(defn- hackAnsiColors "" []
+  (let [f (-> (System/getProperty "java.io.tmpdir")
+              (io/file "czlab-antlogansi.colors"))]
+    (if-not (.exists f) (spit f ansi-colors))
     (System/setProperty "ant.logger.defaults"
                         (.getCanonicalPath f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- project<>
-  "Create a new ant project"
-  ^Project
-  []
-  (hackAnsiColors)
-  (let [lg (doto
+  "New project" ^Project []
+
+  (let [_ (hackAnsiColors)
+        lg (doto
              (AnsiColorLogger.)
              (.setOutputPrintStream System/out)
              (.setErrorPrintStream System/err)
              (.setMessageOutputLevel Project/MSG_INFO))]
     (doto (Project.)
-      (.init)
+      .init
       (.setName "projx")
       (.addBuildListener lg))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- execTarget
-  "Run and execute a target"
-  [^Target t]
+(defn- execTarget "" [^Target t]
   (-> (.getProject t)
       (.executeTarget (.getName t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defmacro ^:private gpdn
-  ""
-  [pd]
-  `(.getName ~(with-meta pd {:tag 'PropertyDescriptor})))
+  "" [pd] `(.getName ~(with-meta pd {:tag 'PropertyDescriptor})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- getBeanInfo
-  "Get java bean info of this class"
-  [cz]
+(defn- getBeanInfo "" [cz]
   (persistent!
     (reduce
       #(assoc! %1 (keyword (gpdn %2)) %2)
@@ -191,36 +177,41 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+(def
+  ^:private
+  setterArgTypes
+  ;;add more types when needed
+  [String
+   java.io.File
+   Boolean/TYPE
+   Boolean
+   Integer/TYPE
+   Integer
+   Long/TYPE
+   Long
+   org.apache.tools.ant.types.Path])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 (defn- method?
   "Find this setter method via best match,
    if found, returns a tuple [method classofarg]"
   [^Class cz ^String m]
+
   (let [arr (make-array java.lang.Class 1)]
     (some
       (fn [^Class z]
-        (aset #^"[Ljava.lang.Class;" arr 0 z)
         (try
+          (aset #^"[Ljava.lang.Class;" arr 0 z)
           [(.getMethod cz m arr) z]
-          (catch Throwable _)))
-      ;;add more types when needed
-      [String
-       java.io.File
-       Boolean/TYPE
-       Boolean
-       Integer/TYPE
-       Integer
-       Long/TYPE
-       Long
-       org.apache.tools.ant.types.Path])))
+          (catch Throwable _))) setterArgTypes)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defmulti ^:private koerce "Converter" (fn [_ a b] [a (class b)]))
 
 (defmethod koerce [Integer/TYPE String] [_ _ ^String v] (Integer/parseInt v (int 10)))
-
 (defmethod koerce [Integer String] [_ _ ^String v] (Integer/parseInt v (int 10)))
-
 (defmethod koerce [Integer/TYPE Long] [_ _ ^Long v] (.intValue v))
 
 (defmethod koerce [Integer Long] [_ _ ^Long v] (.intValue v))
@@ -260,10 +251,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- setProp!
-  ""
-  [^Method wm pojo k arr]
+  "" [wm pojo k arr]
+
   (try
-    (.invoke wm pojo arr)
+    (. ^Method wm invoke pojo arr)
   (catch Throwable _
     (println (str "failed to set " k " for " (class pojo)))
     (throw _))))
@@ -271,10 +262,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- setOptions
-  "Use reflection and invoke setters to set options
+  "Use reflection to invoke setters -> to set options
   on the pojo"
+
   ([pj pojo options]
    (setOptions pj pojo options nil))
+
   ([pj pojo options skips]
    (let [arr (object-array 1)
          cz (class pojo)
@@ -282,11 +275,12 @@
                 (maybeProps cz))]
      (doseq [[k v] options
              :when (not (contains? skips k))]
-       (if-some [^PropertyDescriptor pd (get ps k)]
+       (if-some [^PropertyDescriptor
+                 pd (get ps k)]
          (->
            ;;some cases the beaninfo is erroneous
            ;;so fall back to use *best-try*
-           (let [mn (str "set" (capstr (name k)))
+           (let [mn (str "set" (capstr k))
                  wm (.getWriteMethod pd)
                  pt (.getPropertyType pd)]
              (if (some? wm)
@@ -307,6 +301,7 @@
 (defn- antTarFileSet
   "Configure a TarFileSet Object"
   {:tag Tar$TarFileSet}
+
   ([^Project pj ^Tar$TarFileSet fs options nested]
    (setOptions pj fs options)
    (.setProject fs pj)
@@ -321,6 +316,7 @@
 (defn- antFileSet
   "Create a FileSet Object"
   {:tag FileSet}
+
   ([pj options]
    (antFileSet pj options nil))
   ([pj]
@@ -339,7 +335,8 @@
 ;;
 (defn- antBatchTest
   "Configure a BatchTest Object"
-  {:tag BatchTest }
+  {:tag BatchTest}
+
   ([^Project pj ^BatchTest bt options nested]
    (setOptions pj bt options)
    (maybeCfgNested pj bt nested)
@@ -354,6 +351,7 @@
 (defn- antJunitTest
   "Configure a single JUnit Test Object"
   {:tag JUnitTask }
+
   ([pj] (antJunitTest pj nil nil))
   ([pj options]
    (antJunitTest pj options nil))
@@ -368,6 +366,7 @@
 (defn- antChainedMapper
   "Handles glob only"
   {:tag FileNameMapper}
+
   ([pj options]
    (antChainedMapper pj options nil))
   ([pj]
@@ -382,16 +381,15 @@
                 (.setFrom (:from n))
                 (.setTo (:to n)))
               (.add cm))
-         nil))
+         (trap! (str "unknown mapper: " n))))
      cm)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- fmtr-preopts
-  ""
-  [^FormatterElement tk options]
-  (if-some [[k v] (find options :type)]
-    (. tk
+(defn- fmtr-preopts "" [tk options]
+  (if-some
+    [[k v] (find options :type)]
+    (. ^FormatterElement tk
        setType
        (doto (FormatterElement$TypeAttribute.)
          (.setValue (str v)))))
@@ -402,6 +400,7 @@
 (defn- antFormatter
   "Create a Formatter Object"
   {:tag FormatterElement }
+
   ([pj options] (antFormatter pj options nil))
   ([pj] (antFormatter pj nil nil))
   ([^Project pj options nested]
@@ -415,6 +414,7 @@
 (defn- setClassPath
   "Build a nested Path structure for classpath"
   [^Project pj ^Path root paths]
+
   (doseq [p paths]
     (case (first p)
       :location
@@ -428,20 +428,17 @@
                        (if (> (count p) 1)(nth p 1) {})
                        (if (> (count p) 2)(nth p 2) []))
            (.addFileset root))
-      nil))
+      (trap! (str "unknown path: " p))))
   root)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- maybeCfgNested
-  ""
-  [pj tk nested]
-
+(defn- maybeCfgNested "" [pj tk nested]
   (doseq [p nested]
     (case (first p)
 
       :compilerarg
-      (when-some [n (:line (last p))]
+      (if-some [n (:line (last p))]
         (-> (.createCompilerArg tk)
             (.setLine ^String n)))
 
@@ -543,7 +540,7 @@
         (if (> (count p) 1)(nth p 1) {})
         (if (> (count p) 2)(nth p 2) []))
 
-      nil)))
+      (trap! (str "unknown nested: " p)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -552,15 +549,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- delete-pre-opts
-  ""
-  [tk options]
-  [(merge {:includeEmptyDirs true} options) #{}])
+  "" [tk options] [(merge {:includeEmptyDirs true} options) #{}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- junit-preopts
-  ""
-  [^JUnitTask tk options]
+  "" [^JUnitTask tk options]
 
   (if-some [v (:printsummary options)]
     (. tk
@@ -580,11 +574,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- jdoc-preopts
-  ""
-  [^Javadoc tk options]
-  (if-some [v (:access options)]
-    (. tk
+(defn- jdoc-preopts "" [tk options]
+  (if-some
+    [v (:access options)]
+    (. ^Javadoc tk
        setAccess
        (doto
          (Javadoc$AccessType.)
@@ -593,11 +586,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- tar-preopts
-  ""
-  [^Tar tk options]
-  (if-some [v (:compression options)]
-    (. tk
+(defn- tar-preopts "" [tk options]
+  (if-some
+    [v (:compression options)]
+    (. ^Tar tk
        setCompression
        (doto
          (Tar$TarCompressionMethod.)
@@ -606,8 +598,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- init-task
-  "Reify and configure actual ant tasks"
+(defn- init-task "Reify and configure actual ant tasks"
   ^Task
   [^Project pj
    ^Target target
@@ -616,6 +607,7 @@
            task
            options
            nested]}]
+
   (let [preopts (or pre-options
                     xxx-preopts)]
     (->> (doto ^Task
@@ -634,7 +626,7 @@
   "Bind all the tasks to a target and a project"
   ^Target
   [^String target tasks]
-  {:pre [(sequential? tasks)]}
+
   (let [pj @dftprj
         tg (Target.)]
     (. tg setName (or target ""))
@@ -657,9 +649,7 @@
 (defn runTarget
   "Run ant tasks"
   [target tasks]
-  {:pre [(sequential? tasks)]}
-  (-> (projAntTasks target tasks)
-      (execTarget)))
+  (-> (projAntTasks target tasks) execTarget))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -670,7 +660,7 @@
 ;;
 (defn runTasks
   "Run ant tasks"
-  [tasks] {:pre [(sequential? tasks)]} (runTarget "" tasks))
+  [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -679,9 +669,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- ctask<>
-  ""
-  ^Task
-  [^Project p ^String tt ^String tm]
+  "" ^Task [^Project p ^String tt ^String tm]
+
   (doto
     (.createTask p tt)
     (.setTaskName tm)))
@@ -738,6 +727,7 @@
 ;;
 (defn cleanDir
   "Clean an existing dir or create it"
+
   ([d] (cleanDir d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
@@ -755,6 +745,7 @@
 ;;
 (defn deleteDir
   "Remove a directory"
+
   ([d] (deleteDir d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
@@ -771,6 +762,7 @@
 (defn copyFile
   "Copy a file to the target folder"
   [file toDir]
+
   (.mkdirs (io/file toDir))
   (runTasks*
     (antCopy {:file file
@@ -781,6 +773,7 @@
 (defn moveFile
   "Move a file to the target folder"
   [file toDir]
+
   (.mkdirs (io/file toDir))
   (runTasks*
     (antMove {:file file
@@ -788,14 +781,26 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+(defn symUnlink
+  "Delete a file system symbolic link"
+  [link]
+
+  (runTasks*
+    (antSymlink {:action "delete"
+                 :link link})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 (defn symLink
   "Create a file system symbolic link"
-  [link target]
-  (runTasks*
-    (antSymlink {:overwrite true
-                 :action "single"
-                 :link link
-                 :resource target})))
+
+  ([link target] (symLink link target true))
+  ([link target overwrite?]
+    (runTasks*
+      (antSymlink {:overwrite overwrite?
+                   :action "single"
+                   :link link
+                   :resource target}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF
