@@ -76,7 +76,10 @@
             GlobPatternMapper])
 
   (:require [clojure.java.io :as io]
-            [clojure.string :as cs]))
+            [clojure.core :as cc]
+            [clojure.string :as cs])
+
+  (:refer-clojure :exclude [apply get sync concat replace]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;(set! *warn-on-reflection* true)
@@ -152,21 +155,200 @@
 ;;create a default project.
 (defonce ^:private dftprj (atom (project<>)))
 (defonce ^:private beansCooked (atom false))
+(def
+  ^:private
+  skipped-tasks
+  #{"ant"
+    "antcall"
+    "antstructure"
+    "antversion"
+;;apply
+;;attrib
+    "attributenamespacedef"
+    "augment"
+    "available"
+;;basename
+    "bindtargets"
+    "blgenclient"
+    "buildnumber"
+    "bunzip2"
+    "bzip2"
+;;cab
+    "cccheckin"
+    "cccheckout"
+    "cclock"
+    "ccmcheckin"
+    "ccmcheckintask"
+    "ccmcheckout"
+    "ccmcreatetask"
+    "ccmkattr"
+    "ccmkbl"
+    "ccmkdir"
+    "ccmkelem"
+    "ccmklabel"
+    "ccmklbtype"
+    "ccmreconfigure"
+    "ccrmtype"
+    "ccuncheckout"
+    "ccunlock"
+    "ccupdate"
+;;checksum
+;;chgrp
+;;chmod
+;;chown
+    "classloader"
+    "commandlauncher"
+    "componentdef"
+;;concat
+    "condition"
+;;copy
+    "copydir"
+    "copyfile"
+    "copypath"
+    "cvs"
+    "cvschangelog"
+    "cvspass"
+    "cvstagdiff"
+    "cvsversion"
+    "defaultexcludes"
+;;delete
+    "deltree"
+    "depend"
+    "dependset"
+    "diagnostics"
+    "dirname"
+;;ear
+;;echo
+;;echoproperties
+    "echoxml"
+    "ejbjar"
+;;exec
+    "execon"
+    "fail"
+    "filter"
+;;fixcrlf
+;;genkey
+;;get
+;;gunzip
+;;gzip
+;;hostinfo
+    "import"
+    "include"
+;;input
+    "iplanet-ejbc"
+;;jar
+    "jarlib-available"
+    "jarlib-display"
+    "jarlib-manifest"
+    "jarlib-resolve"
+;;java
+;;javac
+;;javacc
+;;javadoc
+    "javadoc2"
+;;javah
+;;jjdoc
+;;jjtree
+    "jlink"
+    "jspc"
+;;junit
+;;junitreport
+;;length
+    "loadfile"
+    "loadproperties"
+    "loadresource"
+    "local"
+    "macrodef"
+;;mail
+    "makeurl"
+;;manifest
+    "manifestclasspath"
+    "mimemail"
+;;mkdir
+;;move
+    "native2ascii"
+    "nice"
+    "parallel"
+;;patch
+    "pathconvert"
+    "presetdef"
+    "projecthelper"
+;;property
+    "propertyfile"
+    "propertyhelper"
+    "pvcs"
+    "record"
+    "rename"
+    "renameext"
+;;replace
+;;replaceregexp
+    "resourcecount"
+    "retry"
+    "rmic"
+;;rpm
+    "schemavalidate"
+    "script"
+    "scriptdef"
+    "sequential"
+    "serverdeploy"
+;;setpermissions
+;;setproxy
+;;signjar
+;;sleep
+    "soscheckin"
+    "soscheckout"
+    "sosget"
+    "soslabel"
+;;sql
+;;style
+    "subant"
+;;symlink
+;;sync
+;;tar
+    "taskdef"
+;;tempfile
+;;touch
+    "translate"
+;;truncate
+;;tstamp
+    "typedef"
+;;unjar
+;;untar
+;;unwar
+;;unzip
+    "uptodate"
+;;verifyjar
+    "vssadd"
+    "vsscheckin"
+    "vsscheckout"
+    "vsscp"
+    "vsscreate"
+    "vssget"
+    "vsshistory"
+    "vsslabel"
+    "waitfor"
+;;war
+;;whichresource
+    "wljspc"
+    "xmlproperty"
+    "xmlvalidate"
+;;xslt
+;;zip
+    })
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;cache ant task names as symbols, and cache bean-info of class
 (if-not @beansCooked
-  (let [beans (atom {})
-        kees (atom [])
+  (let [kees (atom (sorted-set))
+        beans (atom {})
         syms (atom [])]
     (doseq [[k v] (. ^Project
-                     @dftprj getTaskDefinitions)]
+                     @dftprj getTaskDefinitions)
+            :when (and (not (contains? skipped-tasks k))
+                       (.isAssignableFrom Task v))]
       (swap! kees conj k)
-      (when (.isAssignableFrom Task v)
-        (swap! syms
-               conj
-               (str "ant" (capstr k)) k)
-        (swap! beans assoc v (getBeanInfo v))))
+      (swap! syms conj k k)
+      (swap! beans assoc v (getBeanInfo v)))
     ;;(println "syms = " @kees)
     (def ^:private _tasks (atom (partition 2 (map #(symbol %) @syms))))
     (def ^:private _props (atom @beans))
@@ -275,14 +457,14 @@
   ([^Project pj pojo options skips]
    (let [arr (object-array 1)
          cz (class pojo)
-         ps (or (get @_props cz)
+         ps (or (cc/get @_props cz)
                 (maybeProps cz))]
      (if (instance? ProjectComponent pojo)
        (. ^ProjectComponent pojo setProject pj))
      (doseq [[k v] options
              :when (not (contains? skips k))]
        (if-some [^PropertyDescriptor
-                 pd (get ps k)]
+                 pd (cc/get ps k)]
          (->
            ;;some cases the beaninfo is erroneous
            ;;so fall back to use *best-try*
@@ -582,7 +764,7 @@
            (.setOwningTarget target))
          (.addTask target))
     (->> (preopts task options)
-         (apply setOptions pj task))
+         (cc/apply setOptions pj task))
     (maybeCfgNested pj task nested)
     task))
 
@@ -637,9 +819,7 @@
 (defn- ctask<>
   "" ^Task [^Project p ^String tt ^String tm]
 
-  (doto
-    (.createTask p tt)
-    (.setTaskName tm)))
+  (doto (.createTask p tt) (.setTaskName tm)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -650,29 +830,29 @@
          tm (cs/lower-case
               (.substring s
                           (inc (.lastIndexOf s "."))))]
-     `(defn ~sym ~docstr
-        {:no-doc true}
-        [& [options# nested#]]
-        (let [tk# (ctask<> ~pj ~s ~tm)
-              o# (or options# {})
-              n# (or nested# [])
-              r# {:pre-options ~preopt
-                  :tname ~tm
-                  :task tk#
-                  :options o#
-                  :nested n#}]
-          (if (nil? (:pre-options r#))
-            (->> (case ~s
-                   ;;certain classes need special handling of properties
-                   ;;due to type mismatch or property name
-                   ;;inconsistencies
-                   "delete" delete-pre-opts
-                   "junit" junit-preopts
-                   "javadoc" jdoc-preopts
-                   "tar" tar-preopts
-                   nil)
-                 (assoc r# :pre-options))
-            r#)))))
+     `(defn ~sym ~docstr ;;{:no-doc true}
+        ([~'options] (~sym ~'options nil))
+        ([~'options  ~'nestedElements]
+         (let [tk# (ctask<> ~pj ~s ~tm)
+               o# (or ~'options {})
+               n# (or ~'nestedElements [])
+               r# {:pre-options ~preopt
+                   :tname ~tm
+                   :task tk#
+                   :options o#
+                   :nested n#}]
+           (if (nil? (:pre-options r#))
+             (->> (case ~s
+                    ;;certain classes need special handling of properties
+                    ;;due to type mismatch or property name
+                    ;;inconsistencies
+                    "delete" delete-pre-opts
+                    "junit" junit-preopts
+                    "javadoc" jdoc-preopts
+                    "tar" tar-preopts
+                    nil)
+                  (assoc r# :pre-options))
+             r#))))))
   ([pj sym docstr func]
    `(ant-task ~pj ~sym ~docstr ~func nil)))
 
@@ -699,7 +879,7 @@
        :or {quiet true}}]
    (let [dir (io/file d)]
      (if (.exists dir)
-       (runTasks* (antDelete
+       (runTasks* (delete
                     {:removeNotFollowedSymlinks true
                      :quiet quiet}
                     [[:fileset
@@ -718,7 +898,7 @@
    (let [dir (io/file d)]
      (when (.exists dir)
        (runTasks*
-         (antDelete
+         (delete
            {:removeNotFollowedSymlinks true
             :quiet quiet}
            [[:fileset {:followSymlinks false :dir dir}]]))))))
@@ -731,8 +911,7 @@
 
   (.mkdirs (io/file toDir))
   (runTasks*
-    (antCopy {:file file
-              :todir toDir})))
+    (copy {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -742,31 +921,27 @@
 
   (.mkdirs (io/file toDir))
   (runTasks*
-    (antMove {:file file
-              :todir toDir})))
+    (move {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn symUnlink
+(defn deleteLink
   "Delete a file system symbolic link"
   [link]
-
-  (runTasks*
-    (antSymlink {:action "delete"
-                 :link link})))
+  (runTasks* (symlink {:action "delete" :link link})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn symLink
+(defn createLink
   "Create a file system symbolic link"
 
-  ([link target] (symLink link target true))
+  ([link target] (createLink link target true))
   ([link target overwrite?]
    (runTasks*
-     (antSymlink {:overwrite overwrite?
-                  :action "single"
-                  :link link
-                  :resource target}))))
+     (symlink {:overwrite overwrite?
+               :action "single"
+               :link link
+               :resource target}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF

@@ -8,11 +8,11 @@
 
 (ns czlab.test.antclj.test
 
-  (:require [clojure.string :as cs]
+  (:require [czlab.antclj.antlib :as a]
+            [clojure.string :as cs]
             [clojure.java.io :as io])
 
-  (:use [czlab.antclj.antlib]
-        [clojure.test])
+  (:use [clojure.test])
 
   (:import [java.io File]
            [java.nio.file Files]
@@ -56,7 +56,7 @@
             n (.getName f)
             z (io/file d n)
             _ (spit f "hello")
-            _ (copyFile f d)
+            _ (a/copyFile f d)
             ok (= "hello" (slurp z))]
         (io/delete-file z true)
         (io/delete-file f true)
@@ -68,7 +68,7 @@
             n (.getName f)
             z (io/file d n)
             _ (spit f "hello")
-            _ (moveFile f d)
+            _ (a/moveFile f d)
             ok (and (= "hello" (slurp z))
                     (not (.exists f)))]
         (io/delete-file z true)
@@ -80,9 +80,9 @@
             n (.getName f)
             z (io/file d n)
             _ (spit f "hello")
-            _ (moveFile f d)
+            _ (a/moveFile f d)
             ok (= "hello" (slurp z))
-            _ (cleanDir d)]
+            _ (a/cleanDir d)]
         (and ok
              (not (.exists z)))))
 
@@ -91,20 +91,20 @@
             n (.getName f)
             z (io/file d n)
             _ (spit f "hello")
-            _ (moveFile f d)
+            _ (a/moveFile f d)
             ok (= "hello" (slurp z))
-            _ (deleteDir d)]
+            _ (a/deleteDir d)]
         (and ok
              (not (.exists d)))))
 
   (is (let [f (ctf<>)
             g (ctf<>)
             _ (spit f "hello")
-            _ (symLink (.getCanonicalPath g)
-                       (.getCanonicalPath f))
+            _ (a/createLink (.getCanonicalPath g)
+                            (.getCanonicalPath f))
             ok (and (= "hello" (slurp g))
                     (Files/isSymbolicLink (.toPath g)))
-            _ (symUnlink (.getCanonicalPath g))
+            _ (a/deleteLink (.getCanonicalPath g))
             ok2 (not (.exists g))]
         (and ok ok2)))
 
@@ -116,8 +116,8 @@
             f (io/file src "Test.java")
             _ (spit f javacode)
             _
-            (runTasks*
-              (antJavac
+            (a/runTasks*
+              (a/javac
                 {:srcdir (.getCanonicalPath root)
                  :destdir (.getCanonicalPath out)
                  :target "8"
@@ -132,15 +132,15 @@
                   [[:location (.getCanonicalPath tmpdir)]
                    [:fileset {:dir tmpdir
                               :includes "**/*.jar"}]]]])
-              (antSleep {:seconds "2"})
-              (antJava
+              (a/sleep {:seconds "2"})
+              (a/java
                 {:classname "x.Test"
                  :fork true
                  :failonerror true}
                 [[:argvalues [tn]]
                  [:classpath
                   [[:location (.getCanonicalPath out)]]]])
-              (antSleep {:seconds "2"}))
+              (a/sleep {:seconds "2"}))
             z (io/file tmpdir tn)]
         (= "hello" (slurp z))))
 
