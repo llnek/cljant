@@ -50,6 +50,8 @@
             Commandline$Marker
             PatternSet$NameEntry
             Environment$Variable
+            FileList$FileName
+            FileList
             ZipFileSet
             Reference
             Mapper
@@ -87,6 +89,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+(defmacro ^:private nth?? "" [c p] `(first (drop (dec ~p) ~c)))
 (defmacro ^:private trap! "" [s] `(throw (Exception. ~s)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -157,184 +160,183 @@
 (defonce ^:private beansCooked (atom false))
 (def
   ^:private
-  skipped-tasks
-  #{"ant"
-    "antcall"
-    "antstructure"
-    "antversion"
-;;apply
-;;attrib
-    "attributenamespacedef"
-    "augment"
-    "available"
-;;basename
-    "bindtargets"
-    "blgenclient"
-    "buildnumber"
-    "bunzip2"
-    "bzip2"
-;;cab
-    "cccheckin"
-    "cccheckout"
-    "cclock"
-    "ccmcheckin"
-    "ccmcheckintask"
-    "ccmcheckout"
-    "ccmcreatetask"
-    "ccmkattr"
-    "ccmkbl"
-    "ccmkdir"
-    "ccmkelem"
-    "ccmklabel"
-    "ccmklbtype"
-    "ccmreconfigure"
-    "ccrmtype"
-    "ccuncheckout"
-    "ccunlock"
-    "ccupdate"
-;;checksum
-;;chgrp
-;;chmod
-;;chown
-    "classloader"
-    "commandlauncher"
-    "componentdef"
-;;concat
-    "condition"
-;;copy
-    "copydir"
-    "copyfile"
-    "copypath"
-    "cvs"
-    "cvschangelog"
-    "cvspass"
-    "cvstagdiff"
-    "cvsversion"
-    "defaultexcludes"
-;;delete
-    "deltree"
-    "depend"
-    "dependset"
-    "diagnostics"
-    "dirname"
-;;ear
-;;echo
-;;echoproperties
-    "echoxml"
-    "ejbjar"
-;;exec
-    "execon"
-    "fail"
-    "filter"
-;;fixcrlf
-;;genkey
-;;get
-;;gunzip
-;;gzip
-;;hostinfo
-    "import"
-    "include"
-;;input
-    "iplanet-ejbc"
-;;jar
-    "jarlib-available"
-    "jarlib-display"
-    "jarlib-manifest"
-    "jarlib-resolve"
-;;java
-;;javac
-;;javacc
-;;javadoc
-    "javadoc2"
-;;javah
-;;jjdoc
-;;jjtree
-    "jlink"
-    "jspc"
-;;junit
-;;junitreport
-;;length
-    "loadfile"
-    "loadproperties"
-    "loadresource"
-    "local"
-    "macrodef"
-;;mail
-    "makeurl"
-;;manifest
-    "manifestclasspath"
-    "mimemail"
-;;mkdir
-;;move
-    "native2ascii"
-    "nice"
-    "parallel"
-;;patch
-    "pathconvert"
-    "presetdef"
-    "projecthelper"
-;;property
-    "propertyfile"
-    "propertyhelper"
-    "pvcs"
-    "record"
-    "rename"
-    "renameext"
-;;replace
-;;replaceregexp
-    "resourcecount"
-    "retry"
-    "rmic"
-;;rpm
-    "schemavalidate"
-    "script"
-    "scriptdef"
-    "sequential"
-    "serverdeploy"
-;;setpermissions
-;;setproxy
-;;signjar
-;;sleep
-    "soscheckin"
-    "soscheckout"
-    "sosget"
-    "soslabel"
-;;sql
-;;style
-    "subant"
-;;symlink
-;;sync
-;;tar
-    "taskdef"
-;;tempfile
-;;touch
-    "translate"
-;;truncate
-;;tstamp
-    "typedef"
-;;unjar
-;;untar
-;;unwar
-;;unzip
-    "uptodate"
-;;verifyjar
-    "vssadd"
-    "vsscheckin"
-    "vsscheckout"
-    "vsscp"
-    "vsscreate"
-    "vssget"
-    "vsshistory"
-    "vsslabel"
-    "waitfor"
-;;war
-;;whichresource
-    "wljspc"
-    "xmlproperty"
-    "xmlvalidate"
-;;xslt
-;;zip
-    })
+  okay-tasks
+  #{;;"ant"
+    ;;"antcall"
+    ;;"antstructure"
+    ;;"antversion"
+    "apply"
+    "attrib"
+    ;;"attributenamespacedef"
+    ;;"augment"
+    ;;"available"
+    "basename"
+    ;;"bindtargets"
+    ;;"blgenclient"
+    ;;"buildnumber"
+    ;;"bunzip2"
+    ;;"bzip2"
+    "cab"
+    ;;"cccheckin"
+    ;;"cccheckout"
+    ;;"cclock"
+    ;;"ccmcheckin"
+    ;;"ccmcheckintask"
+    ;;"ccmcheckout"
+    ;;"ccmcreatetask"
+    ;;"ccmkattr"
+    ;;"ccmkbl"
+    ;;"ccmkdir"
+    ;;"ccmkelem"
+    ;;"ccmklabel"
+    ;;"ccmklbtype"
+    ;;"ccmreconfigure"
+    ;;"ccrmtype"
+    ;;"ccuncheckout"
+    ;;"ccunlock"
+    ;;"ccupdate"
+    "checksum"
+    "chgrp"
+    "chmod"
+    "chown"
+    ;;"classloader"
+    ;;"commandlauncher"
+    ;;"componentdef"
+    "concat"
+    ;;"condition"
+    "copy"
+    ;;"copydir"
+    ;;"copyfile"
+    ;;"copypath"
+    ;;"cvs"
+    ;;"cvschangelog"
+    ;;"cvspass"
+    ;;"cvstagdiff"
+    ;;"cvsversion"
+    ;;"defaultexcludes"
+    "delete"
+    ;;"deltree"
+    ;;"depend"
+    ;;"dependset"
+    ;;"diagnostics"
+    ;;"dirname"
+    "ear"
+    "echo"
+    "echoproperties"
+    ;;"echoxml"
+    ;;"ejbjar"
+    "exec"
+    ;;"execon"
+    ;;"fail"
+    ;;"filter"
+    "fixcrlf"
+    "genkey"
+    "get"
+    "gunzip"
+    "gzip"
+    "hostinfo"
+    ;;"import"
+    ;;"include"
+    "input"
+    ;;"iplanet-ejbc"
+    "jar"
+    ;;"jarlib-available"
+    ;;"jarlib-display"
+    ;;"jarlib-manifest"
+    ;;"jarlib-resolve"
+    "java"
+    "javac"
+    "javacc"
+    "javadoc"
+    ;;"javadoc2"
+    "javah"
+    "jjdoc"
+    "jjtree"
+    ;;"jlink"
+    ;;"jspc"
+    "junit"
+    "junitreport"
+    "length"
+    ;;"loadfile"
+    ;;"loadproperties"
+    ;;"loadresource"
+    ;;"local"
+    ;;"macrodef"
+    "mail"
+    ;;"makeurl"
+    "manifest"
+    ;;"manifestclasspath"
+    ;;"mimemail"
+    "mkdir"
+    "move"
+    ;;"native2ascii"
+    ;;"nice"
+    ;;"parallel"
+    "patch"
+    ;;"pathconvert"
+    ;;"presetdef"
+    ;;"projecthelper"
+    "property"
+    ;;"propertyfile"
+    ;;"propertyhelper"
+    ;;"pvcs"
+    ;;"record"
+    ;;"rename"
+    ;;"renameext"
+    "replace"
+    "replaceregexp"
+    ;;"resourcecount"
+    ;;"retry"
+    ;;"rmic"
+    "rpm"
+    ;;"schemavalidate"
+    ;;"script"
+    ;;"scriptdef"
+    ;;"sequential"
+    ;;"serverdeploy"
+    "setpermissions"
+    "setproxy"
+    "signjar"
+    "sleep"
+    ;;"soscheckin"
+    ;;"soscheckout"
+    ;;"sosget"
+    ;;"soslabel"
+    "sql"
+    "style"
+    ;;"subant"
+    "symlink"
+    "sync"
+    "tar"
+    ;;"taskdef"
+    "tempfile"
+    "touch"
+    ;;"translate"
+    "truncate"
+    "tstamp"
+    ;;"typedef"
+    "unjar"
+    "untar"
+    "unwar"
+    "unzip"
+    ;;"uptodate"
+    "verifyjar"
+    ;;"vssadd"
+    ;;"vsscheckin"
+    ;;"vsscheckout"
+    ;;"vsscp"
+    ;;"vsscreate"
+    ;;"vssget"
+    ;;"vsshistory"
+    ;;"vsslabel"
+    ;;"waitfor"
+    "war"
+    "whichresource"
+    ;;"wljspc"
+    ;;"xmlproperty"
+    ;;"xmlvalidate"
+    "xslt"
+    "zip"})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;cache ant task names as symbols, and cache bean-info of class
@@ -344,12 +346,12 @@
         syms (atom [])]
     (doseq [[k v] (. ^Project
                      @dftprj getTaskDefinitions)
-            :when (and (not (contains? skipped-tasks k))
+            :when (and (contains? okay-tasks k)
                        (.isAssignableFrom Task v))]
       (swap! kees conj k)
       (swap! syms conj k k)
       (swap! beans assoc v (getBeanInfo v)))
-    ;;(println "syms = " @kees)
+    (println "syms = " @kees)
     (def ^:private _tasks (atom (partition 2 (map #(symbol %) @syms))))
     (def ^:private _props (atom @beans))
     (reset! beansCooked true)))
@@ -487,7 +489,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- antProjComponent<>
+(defn- projcomp<>
   "Configure a project component"
   {:tag ProjectComponent}
 
@@ -500,8 +502,8 @@
      (maybeCfgNested pj pc nested))
    pc)
   ([pj pc options]
-   (antProjComponent<> pj pc options nil))
-  ([pj pc] (antProjComponent<> pj pc nil nil)))
+   (projcomp<> pj pc options nil))
+  ([pj pc] (projcomp<> pj pc nil nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -553,11 +555,11 @@
       (trap! "path:refid not supported")
       ;;(doto (.createPath root) (.setRefid (last p)))
       :fileset
-      (->> (antProjComponent<>
+      (->> (projcomp<>
              pj
              (FileSet.)
-             (antFileSet (if (> (count p) 1)(nth p 1)))
-             (if (> (count p) 2)(nth p 2) []))
+             (antFileSet (second p))
+             (nth?? p 3))
            (.addFileset root))
       (trap! (str "unknown path: " p))))
   root)
@@ -573,6 +575,11 @@
         (-> (.createCompilerArg tk)
             (.setLine ^String n)))
 
+      :file
+      (let [n (FileList$FileName.)]
+        (. n setName (str (:name (second p))))
+        (. tk addConfiguredFile n))
+
       :classpath
       (setClassPath pj
                     (.createClasspath tk) (last p))
@@ -585,7 +592,7 @@
              (.addSysproperty tk)))
 
       :formatter
-      (->> (antProjComponent<>
+      (->> (projcomp<>
              pj
              (FormatterElement.)
              (partial antFormatter (last p)))
@@ -603,12 +610,24 @@
           (-> (.createExclude tk)
               (.setName v))))
 
+      :filelist
+      (->> (projcomp<> pj (FileList.) (second p) (nth?? p 3))
+           (.addFilelist tk))
+
+      :patternset
+      (projcomp<> pj
+                  (.createPatternSet tk) (second p) (nth?? p 3))
+
+      :dirset
+      (->> (projcomp<> pj
+                       (DirSet.)
+                       (antFileSet (second p)) (nth?? p 3))
+           (.addDirset tk ))
+
       :fileset
-      (let [s (antProjComponent<>
-                pj
-                (FileSet.)
-                (antFileSet (if (> (count p) 1)(nth p 1)))
-                (if (> (count p) 2)(nth p 2) []))]
+      (let [s (projcomp<> pj
+                          (FileSet.)
+                          (antFileSet (second p)) (nth?? p 3))]
         (if (instance? BatchTest tk)
           (.addFileSet tk s)
           (.addFileset tk s)))
@@ -642,21 +661,15 @@
           (.addText (:text (last p))))
 
       :test
-      (->> (antProjComponent<>
-             pj
-             (JUnitTest.)
-             (if (> (count p) 1)(nth p 1) {})
-             (if (> (count p) 2)(nth p 2) []))
-           (.addTest tk))
+      (. tk addTest (projcomp<> pj
+                                (JUnitTest.)
+                                (second p) (nth?? p 3)))
 
       :chainedmapper
-      (->> (antProjComponent<>
-             pj
-             (ChainedMapper.)
-             (if (> (count p) 1)(nth p 1) {})
-             (partial antChainedMapper
-                      (if (> (count p) 2)(nth p 2))))
-           (.add tk))
+      (. tk add (projcomp<> pj
+                            (ChainedMapper.)
+                            (second p)
+                            (partial antChainedMapper (nth?? p 3))))
 
       :targetfile
       (.createTargetfile tk)
@@ -665,28 +678,19 @@
       (.createSrcfile tk)
 
       :batchtest
-      (antProjComponent<>
-        pj
-        (.createBatchTest tk)
-        (if (> (count p) 1)(nth p 1) {})
-        (if (> (count p) 2)(nth p 2) []))
+      (projcomp<> pj
+                  (.createBatchTest tk) (second p) (nth?? p 3))
 
       :tarfileset
-      (antProjComponent<>
-        pj
-        (.createTarFileSet tk)
-        (if (> (count p) 1)(nth p 1) {})
-        (if (> (count p) 2)(nth p 2) []))
+      (projcomp<> pj
+                  (.createTarFileSet tk) (second p) (nth?? p 3))
 
       :zipfileset
-      (antProjComponent<>
-        pj
-        (let [z (ZipFileSet.)]
-          (. ^Zip tk
-             addZipfileset z)
-          z)
-        (if (> (count p) 1)(nth p 1) {})
-        (if (> (count p) 2)(nth p 2) []))
+      (projcomp<> pj
+                  (let [z (ZipFileSet.)]
+                    (. ^Zip tk addZipfileset z) z)
+                  (second p)
+                  (nth?? p 3))
 
       (trap! (str "unknown nested: " p)))))
 

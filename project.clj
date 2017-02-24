@@ -14,7 +14,8 @@
                  [org.apache.ant/ant-junit "1.10.1"]
                  [org.apache.ant/ant "1.10.1"]]
 
-  :plugins [[lein-pprint "1.1.2"]
+  :plugins [[cider/cider-nrepl "0.14.0"]
+            [lein-pprint "1.1.2"]
             [lein-codox "0.10.3"]]
 
   :profiles {:provided {:dependencies
