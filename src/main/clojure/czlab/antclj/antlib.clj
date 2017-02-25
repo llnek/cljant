@@ -279,6 +279,28 @@
 (defmacro ^:private nth?? "" [c p] `(first (drop (dec ~p) ~c)))
 (defmacro ^:private trap! "" [s] `(throw (Exception. ~s)))
 (def ^:private pred-t (constantly true))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- ctor! "" [cz pj]
+  (let
+    [c0 (try (. cz
+                getConstructor
+                (make-array Class 0))
+             (catch Throwable _))
+     c1 (if (nil? c0)
+          (try (. cz
+                  getConstructor
+                  (into-array Class [Project]))
+               (catch Throwable _)))
+     r0
+     (some-> c0
+             (.newInstance (make-array Object 0)))
+     r1
+     (some-> c1
+             (.newInstance (into-array Object [pj])))
+     rc (or r0 r1)]
+    (some->> rc (.setProjectReference pj))
+    rc))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -367,25 +389,29 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- tstSpecOps "" [mn datatypes]
+(defn- tstSpecOps? "" [^MethodDescriptor d]
   (let
-    [[k v]
-     (some
-       #(if (cs/starts-with? mn
-                             (first %)) %) create-ops)
-     prop (if (number? v)
-            (cs/lower-case (.substring mn v)))]
-    (and prop
-         (contains? datatypes prop))))
+    [mtd (.getMethod d)
+     mn (gfdn d)
+     pms (.getParameterTypes mtd)
+     pc (count pms)
+     rt (.getReturnType mtd)]
+    (or
+      (and (cs/starts-with? mn "addConfigured")
+           (== 1 pc))
+      (and (cs/starts-with? mn "add")
+           (== 1 pc))
+      (and (cs/starts-with? mn "create")
+           (== 0 pc)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- getCreatorInfo "" [ops]
+(defn- getCreatorInfo "" [descs]
   (persistent!
     (reduce
-      #(if (tstSpecOps (first %2) _types)
+      #(if (tstSpecOps? %2)
          (assoc! %1
-                 (cs/lower-case (first %2)) (last %2)) %1) (transient {}) ops)))
+                 (cs/lower-case (gfdn %2)) %2) %1) (transient {}) descs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -396,7 +422,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- getBeanInfo "" [cz]
+(defn- getBeanInfo "" [^Class cz]
   (let [b (Introspector/getBeanInfo cz)]
     {:props (getBInfo (.getPropertyDescriptors b))
      :ops (getBInfo (.getMethodDescriptors b))
@@ -412,17 +438,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;cache ant task names as symbols, and cache bean-info of class
-(if-not false ;;@beansCooked
+(if-not @beansCooked
   (do
     (def
       ^:private _beans (merge (beanie _tasks)
                               (beanie _types)))
     (reset! beansCooked true)))
-
-(let [x (_beans Javac)
-      m (:aggrs x)
-      k (keys m)]
-  (println "===" (keys _beans)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -639,7 +660,46 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- maybeCfgNested "" [pj tk nested]
+(defn- nest "" [pj par elem aggrs]
+  (let [op (first elem)
+        s (cs/lower-case (name op))
+        dc
+        (or (cc/get aggrs (str "addconfigured" s))
+            (cc/get aggrs (str "add" s))
+            (cc/get aggrs (str "create" s)))
+        md (some-> dc .getMethod)
+        _ (if (nil? md)
+            (trap! (str "Unknown element " s)))
+        rt (.getReturnType md)
+        mn (.getName md)
+        pms (.getParameterTypes md)]
+    (if (cs/starts-with? mn "add")
+      (let
+        [dt (cc/get _types s)
+         p1 (first pms)
+         co
+         (if (and (some? dt)
+                  (.isAssignableFrom p1 dt))
+           (ctor! dt pj)
+           (ctor! p1 pj))]
+        (.invoke md par (into-array Object [co]))
+        co)
+      (.invoke md par (make-array Object 0)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- maybeCfgNested "" [pj par nested]
+  (let [b (cc/get _beans (class par))
+        ops (:aggrs b)]
+    (doseq [p nested]
+      (projcomp<> pj
+                  (nest pj par p ops)
+                  (second p)
+                  (nth?? p 3)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- XXmaybeCfgNested "" [pj tk nested]
   (doseq [p nested]
     (case (first p)
 
@@ -897,7 +957,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defmacro ^:private antTask
+(defmacro ^:private antTask<>
   "Generate wrapper function for an ant task"
   ([pj sym docstr func preopt]
    (let [s (str func)
@@ -929,7 +989,7 @@
                   (assoc r# :pre-options))
              r#))))))
   ([pj sym docstr func]
-   `(antTask ~pj ~sym ~docstr ~func nil)))
+   `(antTask<> ~pj ~sym ~docstr ~func nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -938,7 +998,7 @@
   [pj]
   (let [ts (mapv #(symbol %) (keys _tasks))]
     `(do ~@(map (fn [a]
-                  `(antTask ~pj ~a "" ~a)) ts))))
+                  `(antTask<> ~pj ~a "" ~a)) ts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -959,7 +1019,7 @@
                      :quiet quiet}
                     [[:fileset
                       {:followSymlinks false :dir dir}
-                      [[:include "**/*"]]]]))
+                      [[:include {:name "**/*"}]]]]))
       (.mkdirs dir)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -127,19 +127,23 @@
                  :debug true
                  :fork true}
                 [[:compilerarg {:line "-Xlint:deprecation"}]
-                 [:include "**/*.java"]
+                 [:include {:name "**/*.java"}]
                  [:classpath
-                  [[:location (.getCanonicalPath tmpdir)]
+                  {}
+                  [[:path
+                    {:location (.getCanonicalPath tmpdir)}]
                    [:fileset {:dir tmpdir
-                              :includes "**/*.jar"}]]]])
+                              :includes {:name "**/*.jar"}}]]]])
               (a/sleep {:seconds "2"})
               (a/java
                 {:classname "x.Test"
                  :fork true
                  :failonerror true}
-                [[:argvalues [tn]]
+                [[:arg {:value tn}]
                  [:classpath
-                  [[:location (.getCanonicalPath out)]]]])
+                  {}
+                  [[:path
+                    {:location (.getCanonicalPath out)}]]]])
               (a/sleep {:seconds "2"}))
             z (io/file tmpdir tn)]
         (= "hello" (slurp z))))
