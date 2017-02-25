@@ -16,13 +16,9 @@
   czlab.antclj.antlib
 
   (:import [org.apache.tools.ant.taskdefs.optional.unix Symlink]
-           [java.beans
-            FeatureDescriptor
-            MethodDescriptor
-            Introspector
-            PropertyDescriptor]
+           [java.beans Introspector PropertyDescriptor]
            [java.lang.reflect Method]
-           [java.util Map]
+           [java.util Stack]
            [java.io File]
            [org.apache.tools.ant.taskdefs
             Javadoc
@@ -63,7 +59,6 @@
             Path
             DirSet]
            [org.apache.tools.ant
-            IntrospectionHelper
             ProjectComponent
             NoBannerLogger
             Project
@@ -92,8 +87,77 @@
 ;;(set! *warn-on-reflection* true)
 (declare maybeCfgNested)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+(defmacro ^:private nth?? "" [c p] `(first (drop (dec ~p) ~c)))
+(defmacro ^:private trap! "" [s] `(throw (Exception. ~s)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- capstr
+  "Capitalize the 1st character"
+  ^String [s] (if s (cs/capitalize (name s)) ""))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(def
+  ^:private ansi-colors
+  (cs/join "\n"
+           ["AnsiColorLogger.ERROR_COLOR=0;31"
+            "AnsiColorLogger.WARNING_COLOR=0;35"
+            "AnsiColorLogger.INFO_COLOR=0;36"
+            "AnsiColorLogger.VERBOSE_COLOR=0;32"
+            "AnsiColorLogger.DEBUG_COLOR=0;34"]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- hackAnsiColors "" []
+  (let [f (-> (System/getProperty "java.io.tmpdir")
+              (io/file "czlab-antlogansi.colors"))]
+    (if-not (.exists f) (spit f ansi-colors))
+    (System/setProperty "ant.logger.defaults"
+                        (.getCanonicalPath f))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- project<>
+  "New project" ^Project []
+
+  (let [_ (hackAnsiColors)
+        lg (doto
+             (AnsiColorLogger.)
+             (.setOutputPrintStream System/out)
+             (.setErrorPrintStream System/err)
+             (.setMessageOutputLevel Project/MSG_INFO))]
+    (doto (Project.)
+      .init
+      (.setName "projx")
+      (.addBuildListener lg))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- execTarget "" [^Target t]
+  (-> (.getProject t)
+      (.executeTarget (.getName t))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defmacro ^:private gpdn
+  "" [pd] `(.getName ~(with-meta pd {:tag 'PropertyDescriptor})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- getBeanInfo "" [cz]
+  (persistent!
+    (reduce
+      #(assoc! %1 (keyword (gpdn %2)) %2)
+      (transient {})
+      (-> (Introspector/getBeanInfo cz) .getPropertyDescriptors))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;create a default project.
+(defonce ^:private dftprj (atom (project<>)))
+(defonce ^:private beansCooked (atom false))
 (def
   ^:private
   okay-tasks
@@ -275,154 +339,29 @@
     "zip"})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private nth?? "" [c p] `(first (drop (dec ~p) ~c)))
-(defmacro ^:private trap! "" [s] `(throw (Exception. ~s)))
-(def ^:private pred-t (constantly true))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- capstr
-  "Capitalize the 1st character"
-  ^String [s] (if s (cs/capitalize (name s)) ""))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(def
-  ^:private ansi-colors
-  (cs/join "\n"
-           ["AnsiColorLogger.ERROR_COLOR=0;31"
-            "AnsiColorLogger.WARNING_COLOR=0;35"
-            "AnsiColorLogger.INFO_COLOR=0;36"
-            "AnsiColorLogger.VERBOSE_COLOR=0;32"
-            "AnsiColorLogger.DEBUG_COLOR=0;34"]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- hackAnsiColors "" []
-  (let [f (-> (System/getProperty "java.io.tmpdir")
-              (io/file "czlab-antlogansi.colors"))]
-    (if-not (.exists f) (spit f ansi-colors))
-    (System/setProperty "ant.logger.defaults"
-                        (.getCanonicalPath f))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- project<>
-  "New project" ^Project []
-
-  (let [_ (hackAnsiColors)
-        lg (doto
-             (AnsiColorLogger.)
-             (.setOutputPrintStream System/out)
-             (.setErrorPrintStream System/err)
-             (.setMessageOutputLevel Project/MSG_INFO))]
-    (doto (Project.)
-      .init
-      (.setName "projx")
-      (.addBuildListener lg))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- execTarget "" [^Target t]
-  (-> (.getProject t)
-      (.executeTarget (.getName t))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private gfdn
-  "" [d] `(.getName ~(with-meta d {:tag 'FeatureDescriptor})))
-
-(def ^:private create-opstrs ["addConfigured" "add" "create"])
-(def ^:private create-ops (zipmap create-opstrs
-                                  (mapv #(.length %) create-opstrs)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- cljMap ""
-  ([m] (cljMap m pred-t))
-  ([m pred]
-   (persistent!
-     (reduce
-       #(let [[k v] %2]
-          (if (pred k v) (assoc! %1 k v) %1)) (transient {}) m))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;create a default project.
-(defonce ^:private dftprj (atom (project<>)))
-(defonce ^:private beansCooked (atom false))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(def
-  ^:private _tasks
-  (cljMap
-    (. ^Project
-       @dftprj getTaskDefinitions)
-    (fn [k v] (contains? okay-tasks k))))
-(def
-  ^:private _types
-  (cljMap
-    (. ^Project
-       @dftprj getDataTypeDefinitions)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- tstSpecOps "" [mn datatypes]
-  (let
-    [[k v]
-     (some
-       #(if (cs/starts-with? mn
-                             (first %)) %) create-ops)
-     prop (if (number? v)
-            (cs/lower-case (.substring mn v)))]
-    (and prop
-         (contains? datatypes prop))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getCreatorInfo "" [ops]
-  (persistent!
-    (reduce
-      #(if (tstSpecOps (first %2) _types)
-         (assoc! %1
-                 (cs/lower-case (first %2)) (last %2)) %1) (transient {}) ops)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getBInfo "" [descs]
-  (persistent!
-    (reduce
-      #(assoc! %1 (keyword (gfdn %2)) %2) (transient {}) descs)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getBeanInfo "" [cz]
-  (let [b (Introspector/getBeanInfo cz)]
-    {:props (getBInfo (.getPropertyDescriptors b))
-     :ops (getBInfo (.getMethodDescriptors b))
-     :aggrs (getCreatorInfo (.getMethodDescriptors b))}))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- beanie "" [m]
-  (persistent!
-    (reduce
-      #(let [[k v] %2]
-         (assoc! %1 v (getBeanInfo v))) (transient {}) m)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;cache ant task names as symbols, and cache bean-info of class
-(if-not false ;;@beansCooked
-  (do
-    (def
-      ^:private _beans (merge (beanie _tasks)
-                              (beanie _types)))
+(if-not @beansCooked
+  (let [kees (atom (sorted-set))
+        beans (atom {})
+        syms (atom [])]
+    (doseq [[k v] (. ^Project
+                     @dftprj getTaskDefinitions)
+            :when (and (contains? okay-tasks k)
+                       (.isAssignableFrom Task v))]
+      (swap! kees conj k)
+      (swap! syms conj k k)
+      (swap! beans assoc v (getBeanInfo v)))
+    (println "syms = " @kees)
+    (def ^:private _tasks (atom (partition 2 (map #(symbol %) @syms))))
+    (def ^:private _props (atom @beans))
     (reset! beansCooked true)))
 
-(let [x (_beans Javac)
-      m (:aggrs x)
-      k (keys m)]
-  (println "===" (keys _beans)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- maybeProps
+  "Add bean info for non-task classes"
+  [cz]
+  (let [b (getBeanInfo cz)] (swap! _props assoc cz b) b))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -510,17 +449,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- setOptionsXXX
+(defn- setOptions
   "Use reflection to invoke setters -> to set options
   on the pojo"
 
   ([pj pojo options]
-   (setOptionsXXX pj pojo options nil))
+   (setOptions pj pojo options nil))
 
   ([^Project pj pojo options skips]
    (let [arr (object-array 1)
          cz (class pojo)
-         ps (:props (cc/get _beans cz))]
+         ps (or (cc/get @_props cz)
+                (maybeProps cz))]
      (if (instance? ProjectComponent pojo)
        (. ^ProjectComponent pojo setProject pj))
      (doseq [[k v] options
@@ -546,19 +486,6 @@
            (setProp! pojo k arr))
          (trap! (str "prop['" k "'] not in " cz)))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- setOptions
-  "Use reflection to invoke setters -> to set options
-  on the pojo"
-
-  ([pj pojo options] (setOptions pj pojo options nil))
-
-  ([^Project pj pojo options skips]
-   (let [h (IntrospectionHelper/getHelper pj
-                                          (class pojo))]
-     (doseq [[k v] options]
-       (. h setAttribute pj pojo (name k) v)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -581,7 +508,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defmacro ^:private antFileSet
-  "" [options] `(merge {:erroronmissingdir false} ~options))
+  "" [options] `(merge {:errorOnMissingDir false} ~options))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -823,12 +750,15 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- configTask
-  "Reify and configure actual ant tasks"
-  ^Task [^Project pj
-         ^Target target
-         {:keys [pre-options
-                 tname task options nested]}]
+(defn- init-task "Reify and configure actual ant tasks"
+  ^Task
+  [^Project pj
+   ^Target target
+   {:keys [pre-options
+           tname
+           task
+           options
+           nested]}]
 
   (let [preopts (or pre-options
                     xxx-preopts)]
@@ -855,7 +785,7 @@
     (. ^Project pj addOrReplaceTarget tg)
     ;;(println (str "number of tasks ==== " (count tasks)))
     (doseq [t tasks]
-      (configTask pj tg t))
+      (init-task pj tg t))
     tg))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -897,7 +827,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defmacro ^:private antTask
+(defmacro ^:private ant-task
   "Generate wrapper function for an ant task"
   ([pj sym docstr func preopt]
    (let [s (str func)
@@ -906,7 +836,6 @@
                           (inc (.lastIndexOf s "."))))]
      `(defn ~sym ~docstr ;;{:no-doc true}
         ([~'options] (~sym ~'options nil))
-        ([] (~sym nil nil))
         ([~'options  ~'nestedElements]
          (let [tk# (ctask<> ~pj ~s ~tm)
                o# (or ~'options {})
@@ -929,16 +858,16 @@
                   (assoc r# :pre-options))
              r#))))))
   ([pj sym docstr func]
-   `(antTask ~pj ~sym ~docstr ~func nil)))
+   `(ant-task ~pj ~sym ~docstr ~func nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defmacro ^:private declAntTasks
-  "Introspect the default project and cache all registered ant tasks"
+  "Introspect the default project and cache all registered ant-tasks"
   [pj]
-  (let [ts (mapv #(symbol %) (keys _tasks))]
-    `(do ~@(map (fn [a]
-                  `(antTask ~pj ~a "" ~a)) ts))))
+  `(do ~@(map (fn [[a b]]
+                `(ant-task ~pj ~a "" ~b))
+              (deref _tasks))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1013,7 +942,7 @@
   ([link target] (createLink link target true))
   ([link target overwrite?]
    (runTasks*
-     (symlink {:overwrite (boolean overwrite?)
+     (symlink {:overwrite overwrite?
                :action "single"
                :link link
                :resource target}))))
