@@ -140,6 +140,7 @@
         (and ok
              (not (.exists d)))))
 
+  #_
   (is (let [f (ctf<>)
             g (ctf<>)
             _ (spit f "hello")
