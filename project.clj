@@ -10,8 +10,9 @@
 
   :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
                  ;;[org.apache.ant/ant-launcher "1.10.1"]
-                 [org.apache.ant/ant-junit4 "1.10.1"]
-                 [org.apache.ant/ant-junit "1.10.1"]
+                 [org.apache.ant/ant-junit4 "1.10.1" :scope "test"]
+                 [org.apache.ant/ant-junit "1.10.1" :scope "test"]
+                 [junit/junit "4.12" :scope "test"]
                  [org.apache.ant/ant "1.10.1"]]
 
   :plugins [[cider/cider-nrepl "0.14.0"]
@@ -20,8 +21,8 @@
 
   :profiles {:provided {:dependencies
                         [[org.clojure/clojure "1.8.0" :scope "provided"]
-                         [net.mikera/cljunit "0.6.0" :scope "test"]
-                         [junit/junit "4.12" :scope "test"]]}
+                         [junit/junit "4.12" :scope "test"]
+                         [net.mikera/cljunit "0.6.0" :scope "test"]]}
              :uberjar {:aot :all}}
 
   :global-vars {*warn-on-reflection* false}

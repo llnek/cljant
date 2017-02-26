@@ -56,6 +56,7 @@
             Environment$Variable
             FileList$FileName
             FileList
+            AbstractFileSet
             ZipFileSet
             Reference
             Mapper
@@ -77,6 +78,8 @@
             JUnitTest
             BatchTest
             FormatterElement]
+           [java.rmi.server UID]
+           [clojure.lang APersistentMap]
            [org.apache.tools.ant.util
             FileNameMapper
             ChainedMapper
@@ -90,189 +93,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;(set! *warn-on-reflection* true)
-(declare maybeCfgNested)
+(def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
+(defn uid "" ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
+(defn ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
+(defn ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
 
+(declare maybeCfgNested)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (def
   ^:private
-  okay-tasks
-  #{;;"ant"
-    ;;"antcall"
-    ;;"antstructure"
-    ;;"antversion"
-    "apply"
-    "attrib"
-    ;;"attributenamespacedef"
-    ;;"augment"
-    ;;"available"
-    "basename"
-    ;;"bindtargets"
-    ;;"blgenclient"
-    ;;"buildnumber"
-    ;;"bunzip2"
-    ;;"bzip2"
-    "cab"
-    ;;"cccheckin"
-    ;;"cccheckout"
-    ;;"cclock"
-    ;;"ccmcheckin"
-    ;;"ccmcheckintask"
-    ;;"ccmcheckout"
-    ;;"ccmcreatetask"
-    ;;"ccmkattr"
-    ;;"ccmkbl"
-    ;;"ccmkdir"
-    ;;"ccmkelem"
-    ;;"ccmklabel"
-    ;;"ccmklbtype"
-    ;;"ccmreconfigure"
-    ;;"ccrmtype"
-    ;;"ccuncheckout"
-    ;;"ccunlock"
-    ;;"ccupdate"
-    "checksum"
-    "chgrp"
-    "chmod"
-    "chown"
-    ;;"classloader"
-    ;;"commandlauncher"
-    ;;"componentdef"
-    "concat"
-    ;;"condition"
-    "copy"
-    ;;"copydir"
-    ;;"copyfile"
-    ;;"copypath"
-    ;;"cvs"
-    ;;"cvschangelog"
-    ;;"cvspass"
-    ;;"cvstagdiff"
-    ;;"cvsversion"
-    ;;"defaultexcludes"
-    "delete"
-    ;;"deltree"
-    ;;"depend"
-    ;;"dependset"
-    ;;"diagnostics"
-    ;;"dirname"
-    "ear"
-    "echo"
-    "echoproperties"
-    ;;"echoxml"
-    ;;"ejbjar"
-    "exec"
-    ;;"execon"
-    ;;"fail"
-    ;;"filter"
-    "fixcrlf"
-    "genkey"
-    "get"
-    "gunzip"
-    "gzip"
-    "hostinfo"
-    ;;"import"
-    ;;"include"
-    "input"
-    ;;"iplanet-ejbc"
-    "jar"
-    ;;"jarlib-available"
-    ;;"jarlib-display"
-    ;;"jarlib-manifest"
-    ;;"jarlib-resolve"
-    "java"
-    "javac"
-    "javacc"
-    "javadoc"
-    ;;"javadoc2"
-    "javah"
-    "jjdoc"
-    "jjtree"
-    ;;"jlink"
-    ;;"jspc"
-    "junit"
-    "junitreport"
-    "length"
-    ;;"loadfile"
-    ;;"loadproperties"
-    ;;"loadresource"
-    ;;"local"
-    ;;"macrodef"
-    "mail"
-    ;;"makeurl"
-    "manifest"
-    ;;"manifestclasspath"
-    ;;"mimemail"
-    "mkdir"
-    "move"
-    ;;"native2ascii"
-    ;;"nice"
-    ;;"parallel"
-    "patch"
-    ;;"pathconvert"
-    ;;"presetdef"
-    ;;"projecthelper"
-    "property"
-    ;;"propertyfile"
-    ;;"propertyhelper"
-    ;;"pvcs"
-    ;;"record"
-    ;;"rename"
-    ;;"renameext"
-    "replace"
-    "replaceregexp"
-    ;;"resourcecount"
-    ;;"retry"
-    ;;"rmic"
-    "rpm"
-    ;;"schemavalidate"
-    ;;"script"
-    ;;"scriptdef"
-    ;;"sequential"
-    ;;"serverdeploy"
-    "setpermissions"
-    "setproxy"
-    "signjar"
-    "sleep"
-    ;;"soscheckin"
-    ;;"soscheckout"
-    ;;"sosget"
-    ;;"soslabel"
-    "sql"
-    "style"
-    ;;"subant"
-    "symlink"
-    "sync"
-    "tar"
-    ;;"taskdef"
-    "tempfile"
-    "touch"
-    ;;"translate"
-    "truncate"
-    "tstamp"
-    ;;"typedef"
-    "unjar"
-    "untar"
-    "unwar"
-    "unzip"
-    ;;"uptodate"
-    "verifyjar"
-    ;;"vssadd"
-    ;;"vsscheckin"
-    ;;"vsscheckout"
-    ;;"vsscp"
-    ;;"vsscreate"
-    ;;"vssget"
-    ;;"vsshistory"
-    ;;"vsslabel"
-    ;;"waitfor"
-    "war"
-    "whichresource"
-    ;;"wljspc"
-    ;;"xmlproperty"
-    ;;"xmlvalidate"
-    "xslt"
-    "zip"})
+  skipped-tasks #{"ant" "antcall" "import" "include"
+                  "copydir" "copyfile" "copypath"
+                  "deltree" "execon" "javadoc2"
+                  "jlink" "jspc" "mimemail"
+                  "rename" "renameext" "filter"
+                  "antstructure" "antversion"})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -304,45 +140,29 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- capstr
-  "Capitalize the 1st character"
-  ^String [s] (if s (cs/capitalize (name s)) ""))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 (def
-  ^:private ansi-colors
-  (cs/join "\n"
-           ["AnsiColorLogger.ERROR_COLOR=0;31"
-            "AnsiColorLogger.WARNING_COLOR=0;35"
-            "AnsiColorLogger.INFO_COLOR=0;36"
-            "AnsiColorLogger.VERBOSE_COLOR=0;32"
-            "AnsiColorLogger.DEBUG_COLOR=0;34"]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- hackAnsiColors "" []
-  (let [f (-> (System/getProperty "java.io.tmpdir")
-              (io/file "czlab-antlogansi.colors"))]
-    (if-not (.exists f) (spit f ansi-colors))
+  ^:private
+  ansiLogger
+  (let [f (io/file tmpdir "czlab-antlogansi.colors")
+        s (cs/join "\n"
+                   ["AnsiColorLogger.ERROR_COLOR=0;31"
+                    "AnsiColorLogger.WARNING_COLOR=0;35"
+                    "AnsiColorLogger.INFO_COLOR=0;36"
+                    "AnsiColorLogger.VERBOSE_COLOR=0;32"
+                    "AnsiColorLogger.DEBUG_COLOR=0;34"])]
+    (if-not (.exists f) (spit f s))
     (System/setProperty "ant.logger.defaults"
-                        (.getCanonicalPath f))))
+                        (.getCanonicalPath f))
+    (doto
+      (AnsiColorLogger.)
+      (.setOutputPrintStream System/out)
+      (.setErrorPrintStream System/err)
+      (.setMessageOutputLevel Project/MSG_INFO))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- project<>
-  "New project" ^Project []
-
-  (let [_ (hackAnsiColors)
-        lg (doto
-             (AnsiColorLogger.)
-             (.setOutputPrintStream System/out)
-             (.setErrorPrintStream System/err)
-             (.setMessageOutputLevel Project/MSG_INFO))]
-    (doto (Project.)
-      .init
-      (.setName "projx")
-      (.addBuildListener lg))))
+  "" ^Project [] (doto (Project.) .init (.setName "projx")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -380,7 +200,7 @@
   (cljMap
     (. ^Project
        @dftprj getTaskDefinitions)
-    (fn [k v] (contains? okay-tasks k))))
+    (fn [k v] (not (contains? skipped-tasks k)))))
 (def
   ^:private _types
   (cljMap
@@ -441,145 +261,28 @@
 (if-not @beansCooked
   (do
     (def
-      ^:private _beans (merge (beanie _tasks)
-                              (beanie _types)))
+      ^:private _beans (atom (merge (beanie _tasks)
+                                    (beanie _types))))
     (reset! beansCooked true)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(def
-  ^:private
-  setterArgTypes
-  ;;add more types when needed
-  [String
-   java.io.File
-   Boolean/TYPE
-   Boolean
-   Integer/TYPE
-   Integer
-   Long/TYPE
-   Long
-   org.apache.tools.ant.types.Path])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- method?
-  "Find this setter method via best match,
-   if found, returns a tuple [method classofarg]"
-  [^Class cz ^String m]
-
-  (let [arr (make-array java.lang.Class 1)]
-    (some
-      (fn [^Class z]
-        (try
-          (aset #^"[Ljava.lang.Class;" arr 0 z)
-          [(.getMethod cz m arr) z]
-          (catch Throwable _))) setterArgTypes)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmulti ^:private koerce "Converter" (fn [_ a b] [a (class b)]))
-
-(defmethod koerce [Integer/TYPE String] [_ _ ^String v] (Integer/parseInt v (int 10)))
-(defmethod koerce [Integer String] [_ _ ^String v] (Integer/parseInt v (int 10)))
-(defmethod koerce [Integer/TYPE Long] [_ _ ^Long v] (.intValue v))
-
-(defmethod koerce [Integer Long] [_ _ ^Long v] (.intValue v))
-(defmethod koerce [Integer/TYPE Integer] [_ _ ^Integer v] v)
-(defmethod koerce [Integer Integer] [_ _ ^Integer v] v)
-
-(defmethod koerce [Long/TYPE String] [_ _ ^String v] (Long/parseLong v (int 10)))
-(defmethod koerce [Long String] [_ _ ^String v] (Long/parseLong v (int 10)))
-
-(defmethod koerce [Long/TYPE Long] [_ _ ^Long v] v)
-(defmethod koerce [Long Long] [_ _ ^Long v] v)
-
-(defmethod koerce [Path File] [^Project pj _ ^File v] (Path. pj (.getCanonicalPath v)))
-(defmethod koerce [Path String] [^Project pj _ ^String v] (Path. pj v))
-
-(defmethod koerce [File String] [_ _ ^String v] (io/file v))
-(defmethod koerce [File File] [_ _ v] v)
-
-(defmethod koerce :default [_ pz _] (Exception. (str "expected class " pz)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- coerce
-  "Best attempt to convert a given value"
-  [pj pz value]
-  (cond
-    (or (= Boolean/TYPE pz)
-        (= Boolean pz))
-    (= "true" (str value))
-
-    (= String pz)
-    (str value)
-
-    :else
-    (koerce pj pz value)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- setProp!
-  "" [wm pojo k arr]
-
-  (try
-    (. ^Method wm invoke pojo arr)
-  (catch Throwable _
-    (println (str "failed to set " k " for " (class pojo)))
-    (throw _))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- setOptionsXXX
-  "Use reflection to invoke setters -> to set options
-  on the pojo"
-
-  ([pj pojo options]
-   (setOptionsXXX pj pojo options nil))
-
-  ([^Project pj pojo options skips]
-   (let [arr (object-array 1)
-         cz (class pojo)
-         ps (:props (cc/get _beans cz))]
-     (if (instance? ProjectComponent pojo)
-       (. ^ProjectComponent pojo setProject pj))
-     (doseq [[k v] options
-             :when (not (contains? skips k))]
-       (if-some [^PropertyDescriptor
-                 pd (cc/get ps k)]
-         (->
-           ;;some cases the beaninfo is erroneous
-           ;;so fall back to use *best-try*
-           (let [mn (str "set" (capstr k))
-                 wm (.getWriteMethod pd)
-                 pt (.getPropertyType pd)]
-             (if (some? wm)
-               (do (->> (coerce pj pt v)
-                        (aset arr 0)) wm)
-               (let [[wm pt]
-                     (method? cz mn)]
-                 (if (nil? wm)
-                   (trap! (str mn " not in " cz)))
-                 (->> (coerce pj pt v)
-                      (aset arr 0))
-                 wm)))
-           (setProp! pojo k arr))
-         (trap! (str "prop['" k "'] not in " cz)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- setOptions
   "Use reflection to invoke setters -> to set options
   on the pojo"
-
-  ([pj pojo options] (setOptions pj pojo options nil))
-
-  ([^Project pj pojo options skips]
-   (let [h (IntrospectionHelper/getHelper pj
-                                          (class pojo))]
-     (doseq [[k v] options]
-       (. h setAttribute pj pojo (name k) v)))))
+  [^Project pj pojo options]
+  (let [h (IntrospectionHelper/getHelper pj
+                                         (class pojo))
+        z (class pojo)
+        options
+        (cond
+          (instance? AbstractFileSet pojo)
+          (merge {:erroronmissingdir false} options)
+          (= z Delete)
+          (merge {:includeemptydirs true} options)
+          :else options)]
+    (doseq [[k v] options]
+      (. h setAttribute pj pojo (name k) v))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -588,75 +291,12 @@
   {:tag ProjectComponent}
 
   ([^Project pj ^ProjectComponent pc options nested]
-   (if (fn? options)
-     (options pj pc)
-     (setOptions pj pc options))
-   (if (fn? nested)
-     (nested pj pc)
-     (maybeCfgNested pj pc nested))
+   (setOptions pj pc options)
+   (maybeCfgNested pj pc nested)
    pc)
   ([pj pc options]
    (projcomp<> pj pc options nil))
   ([pj pc] (projcomp<> pj pc nil nil)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private antFileSet
-  "" [options] `(merge {:erroronmissingdir false} ~options))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- antChainedMapper
-  "Handles glob only"
-  ^ProjectComponent [nested pj cm]
-
-  (doseq [n nested]
-    (case (:type n)
-      :glob
-      (->> (doto (GlobPatternMapper.)
-             (.setFrom (:from n))
-             (.setTo (:to n)))
-           (. ^ChainedMapper cm add ))
-      (trap! (str "unknown mapper: " n))))
-  cm)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- antFormatter ""
-  ^ProjectComponent [options pj tk]
-
-  (if-some
-    [[k v] (find options :type)]
-    (. ^FormatterElement tk
-       setType
-       (doto (FormatterElement$TypeAttribute.)
-         (.setValue (str v)))))
-  (setOptions pj tk options #{:type})
-  tk)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- setClassPath
-  "Build a nested Path structure for classpath"
-  [^Project pj ^Path root paths]
-
-  (doseq [p paths]
-    (case (first p)
-      :location
-      (doto (.createPath root)
-        (.setLocation (io/file (str (last p)))))
-      :refid
-      (trap! "path:refid not supported")
-      ;;(doto (.createPath root) (.setRefid (last p)))
-      :fileset
-      (->> (projcomp<>
-             pj
-             (FileSet.)
-             (antFileSet (second p))
-             (nth?? p 3))
-           (.addFileset root))
-      (trap! (str "unknown path: " p))))
-  root)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -668,7 +308,7 @@
             (cc/get aggrs (str "add" s))
             (cc/get aggrs (str "create" s)))
         md (some-> dc .getMethod)
-        _ (if (nil? md)
+        _ (when (nil? md)
             (trap! (str "Unknown element " s)))
         rt (.getReturnType md)
         mn (.getName md)
@@ -689,197 +329,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- maybeCfgNested "" [pj par nested]
-  (let [b (cc/get _beans (class par))
+  (let [pz (class par)
+        b (if-some [m (cc/get @_beans pz)]
+            m
+            (let [m (getBeanInfo pz)]
+              (swap! _beans assoc pz m) m))
         ops (:aggrs b)]
-    (doseq [p nested]
-      (projcomp<> pj
-                  (nest pj par p ops)
-                  (second p)
-                  (nth?? p 3)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- XXmaybeCfgNested "" [pj tk nested]
-  (doseq [p nested]
-    (case (first p)
-
-      :compilerarg
-      (if-some [n (:line (last p))]
-        (-> (.createCompilerArg tk)
-            (.setLine ^String n)))
-
-      :file
-      (let [n (FileList$FileName.)]
-        (. n setName (str (:name (second p))))
-        (. tk addConfiguredFile n))
-
-      :classpath
-      (setClassPath pj
-                    (.createClasspath tk) (last p))
-
-      :sysprops
-      (doseq [[k v] (last p)]
-        (->> (doto (Environment$Variable.)
-                   (.setKey (name k))
-                   (.setValue (str v)))
-             (.addSysproperty tk)))
-
-      :formatter
-      (->> (projcomp<>
-             pj
-             (FormatterElement.)
-             (partial antFormatter (last p)))
-           (.addFormatter tk))
-
-      :include
-      (let [v (cs/trim (str (last p)))]
-        (if-not (empty? v)
-          (-> (.createInclude tk)
-              (.setName v))))
-
-      :exclude
-      (let [v (cs/trim (str (last p)))]
-        (if-not (empty? v)
-          (-> (.createExclude tk)
-              (.setName v))))
-
-      :filelist
-      (->> (projcomp<> pj (FileList.) (second p) (nth?? p 3))
-           (.addFilelist tk))
-
-      :patternset
-      (projcomp<> pj
-                  (.createPatternSet tk) (second p) (nth?? p 3))
-
-      :dirset
-      (->> (projcomp<> pj
-                       (DirSet.)
-                       (antFileSet (second p)) (nth?? p 3))
-           (.addDirset tk ))
-
-      :fileset
-      (let [s (projcomp<> pj
-                          (FileSet.)
-                          (antFileSet (second p)) (nth?? p 3))]
-        (if (instance? BatchTest tk)
-          (.addFileSet tk s)
-          (.addFileset tk s)))
-
-      :argvalues
-      (doseq [v (last p)]
-        (-> (.createArg tk)
-            (.setValue (str v))))
-
-      :argpaths
-      (doseq [v (last p)]
-        (-> (.createArg tk)
-            (.setPath (Path. pj (str v)))))
-
-      :arglines
-      (doseq [v (last p)]
-        (-> (.createArg tk)
-            (.setLine (str v))))
-
-      :replacefilter
-      (doto (.createReplacefilter tk)
-            (.setToken (:token (nth p 1)))
-            (.setValue (:value (nth p 1))))
-
-      :replacevalue
-      (-> (.createReplaceValue tk)
-          (.addText (:text (last p))))
-
-      :replacetoken
-      (-> (.createReplaceToken tk)
-          (.addText (:text (last p))))
-
-      :test
-      (. tk addTest (projcomp<> pj
-                                (JUnitTest.)
-                                (second p) (nth?? p 3)))
-
-      :chainedmapper
-      (. tk add (projcomp<> pj
-                            (ChainedMapper.)
-                            (second p)
-                            (partial antChainedMapper (nth?? p 3))))
-
-      :targetfile
-      (.createTargetfile tk)
-
-      :srcfile
-      (.createSrcfile tk)
-
-      :batchtest
-      (projcomp<> pj
-                  (.createBatchTest tk) (second p) (nth?? p 3))
-
-      :tarfileset
-      (projcomp<> pj
-                  (.createTarFileSet tk) (second p) (nth?? p 3))
-
-      :zipfileset
-      (projcomp<> pj
-                  (let [z (ZipFileSet.)]
-                    (. ^Zip tk addZipfileset z) z)
-                  (second p)
-                  (nth?? p 3))
-
-      (trap! (str "unknown nested: " p)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- xxx-preopts "" [tk options] [options #{}])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- delete-pre-opts
-  "" [tk options] [(merge {:includeEmptyDirs true} options) #{}])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- junit-preopts
-  "" [^JUnitTask tk options]
-
-  (if-some [v (:printsummary options)]
-    (. tk
-       setPrintsummary
-       (doto
-         (JUnitTask$SummaryAttribute.)
-         (.setValue (str v)))))
-
-  (if-some [v (:forkMode options)]
-    (. tk
-       setForkMode
-       (doto
-         (JUnitTask$ForkMode.)
-         (.setValue (str v)))))
-
-  [options #{:printsummary :forkMode}])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- jdoc-preopts "" [tk options]
-  (if-some
-    [v (:access options)]
-    (. ^Javadoc tk
-       setAccess
-       (doto
-         (Javadoc$AccessType.)
-         (.setValue (str v)))))
-  [options #{:access}])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- tar-preopts "" [tk options]
-  (if-some
-    [v (:compression options)]
-    (. ^Tar tk
-       setCompression
-       (doto
-         (Tar$TarCompressionMethod.)
-         (.setValue (str v)))))
-  [options #{:compression}])
+    (if (nil? b)
+      (trap! (str "no bean info for class " pz)))
+    (cond
+      (string? nested)
+      (if (contains? ops "addtext")
+        (.addText par nested)
+        (trap! (str "incorrect use of text string for " pz)))
+      :else
+      (doseq [p nested
+              :let [p2 (second p)
+                    pc (count p)
+                    p3 (nth?? p 3)]]
+        ;; deal with cases where options are skipped
+        (if (and (== 2 pc)
+                 (not (map? p2)))
+          (projcomp<> pj (nest pj par p ops) nil p2)
+          (projcomp<> pj (nest pj par p ops) p2 p3))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -887,18 +359,15 @@
   "Reify and configure actual ant tasks"
   ^Task [^Project pj
          ^Target target
-         {:keys [pre-options
-                 tname task options nested]}]
+         {:keys [tname task options nested]}]
 
-  (let [preopts (or pre-options
-                    xxx-preopts)]
+  (let []
     (->> (doto ^Task
            task
            (.setProject pj)
            (.setOwningTarget target))
          (.addTask target))
-    (->> (preopts task options)
-         (cc/apply setOptions pj task))
+    (setOptions pj task options)
     (maybeCfgNested pj task nested)
     task))
 
@@ -929,24 +398,30 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn runTarget
-  "Run ant tasks"
+  "Run ant target"
   [target tasks]
   (-> (projAntTasks target tasks) execTarget))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn runTarget*
-  "Run ant tasks" [target & tasks] (runTarget target tasks))
+  "Run ant target" [target & tasks] (runTarget target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn runTasks
-  "Run ant tasks"
-  [tasks] (runTarget "" tasks))
+(defn runTasks "Run ant tasks" [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn runTasks* "Run ant tasks" [& tasks] (runTarget "" tasks))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn run* "Run ant tasks" [& tasks] (runTarget "" tasks))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn run "Run ant tasks" [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -965,7 +440,11 @@
               (.substring s
                           (inc (.lastIndexOf s "."))))]
      `(defn ~sym ~docstr ;;{:no-doc true}
-        ([~'options] (~sym ~'options nil))
+        ;; if not options then it could be nested
+        ([~'options]
+         (if-not (map? ~'options)
+           (~sym nil ~'options)
+           (~sym ~'options nil)))
         ([] (~sym nil nil))
         ([~'options  ~'nestedElements]
          (let [tk# (ctask<> ~pj ~s ~tm)
@@ -976,18 +455,7 @@
                    :task tk#
                    :options o#
                    :nested n#}]
-           (if (nil? (:pre-options r#))
-             (->> (case ~s
-                    ;;certain classes need special handling of properties
-                    ;;due to type mismatch or property name
-                    ;;inconsistencies
-                    "delete" delete-pre-opts
-                    "junit" junit-preopts
-                    "javadoc" jdoc-preopts
-                    "tar" tar-preopts
-                    nil)
-                  (assoc r# :pre-options))
-             r#))))))
+             r#)))))
   ([pj sym docstr func]
    `(antTask<> ~pj ~sym ~docstr ~func nil)))
 
@@ -1004,6 +472,20 @@
 ;;
 (declAntTasks @dftprj)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn readProperties
+  "Read all ant properties" ^APersistentMap []
+
+  (let [ps (java.util.Properties.)
+        f (ctf<>)
+        _ (run*
+            (echoproperties
+              {:failonerror false
+               :destfile f}))]
+    (with-open [inp (io/input-stream f)] (.load ps inp))
+    (cljMap ps)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn cleanDir
@@ -1014,11 +496,11 @@
        :or {quiet true}}]
    (let [dir (io/file d)]
      (if (.exists dir)
-       (runTasks* (delete
+       (run* (delete
                     {:removeNotFollowedSymlinks true
                      :quiet quiet}
                     [[:fileset
-                      {:followSymlinks false :dir dir}
+                      {:followsymlinks false :dir dir}
                       [[:include {:name "**/*"}]]]]))
       (.mkdirs dir)))))
 
@@ -1032,11 +514,11 @@
        :or {quiet true}}]
    (let [dir (io/file d)]
      (when (.exists dir)
-       (runTasks*
+       (run*
          (delete
            {:removeNotFollowedSymlinks true
             :quiet quiet}
-           [[:fileset {:followSymlinks false :dir dir}]]))))))
+           [[:fileset {:followsymlinks false :dir dir}]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1045,7 +527,7 @@
   [file toDir]
 
   (.mkdirs (io/file toDir))
-  (runTasks*
+  (run*
     (copy {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1055,7 +537,7 @@
   [file toDir]
 
   (.mkdirs (io/file toDir))
-  (runTasks*
+  (run*
     (move {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1063,7 +545,7 @@
 (defn deleteLink
   "Delete a file system symbolic link"
   [link]
-  (runTasks* (symlink {:action "delete" :link link})))
+  (run* (symlink {:action "delete" :link link})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1072,11 +554,27 @@
 
   ([link target] (createLink link target true))
   ([link target overwrite?]
-   (runTasks*
+   (run*
      (symlink {:overwrite (boolean overwrite?)
                :action "single"
                :link link
                :resource target}))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn disableAntLogger "Remove build logger" []
+  (if
+    (-> (. ^Project @dftprj getBuildListeners)
+        (.contains ansiLogger))
+    (. ^Project @dftprj removeBuildListener ansiLogger)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn enableAntLogger "Add build logger" []
+  (if-not
+    (-> (. ^Project @dftprj getBuildListeners)
+        (.contains ansiLogger))
+    (. ^Project @dftprj addBuildListener ansiLogger)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF

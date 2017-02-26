@@ -8,7 +8,7 @@
 
 (ns czlab.test.antclj.test
 
-  (:require [czlab.antclj.antlib :as a]
+  (:require [czlab.antclj.antlib :as a :refer [uid ctf<> ctd<>]]
             [clojure.string :as cs]
             [clojure.java.io :as io])
 
@@ -22,9 +22,6 @@
 ;;
 ;;(set! *warn-on-reflection* true)
 (def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
-(defn- uid "" ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
-(defn- ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
-(defn- ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
 (def ^:private javac (str
                        (System/getenv "JAVA_HOME") "/bin/javac"))
 (def
@@ -45,11 +42,57 @@
 ;;
 (deftest czlabtestantclj-test
 
-  #_
+  (is (let [f (ctf<>)
+            _ (spit f "yada yada some-token yoda yoda")
+            _
+            (a/run*
+              (a/replace
+                {:file (.getCanonicalPath f)}
+                [[:replacetoken "some-token"]
+                 [:replacevalue "some-value"]]))
+            s (slurp f)]
+        (cs/includes? s "some-value")))
+
   (is (let [_
-            (runTasks*
-              (antGenkey {} []))]
-        true))
+            (a/run*
+              (a/hostinfo
+                {:host "www.google.com"
+                 :prefix "goog"}))
+            m (a/readProperties)
+            ps
+            (filter #(cs/starts-with? % "goog.") (keys m))]
+        (boolean (not-empty ps))))
+
+  (is (let [f (.getCanonicalPath (ctf<>))
+            _
+            (a/run*
+              (a/echoproperties
+                {:destfile f}))]
+        (.exists (io/file f))))
+
+  (is (let [f (.getCanonicalPath (ctf<>))
+            _
+            (a/run*
+              (a/get
+                {:src "http://google.com"
+                 :dest f
+                 :ignoreerrors true
+                 :quiet true}))]
+        (.exists (io/file f))))
+
+  (is (let [f (.getCanonicalPath (ctf<>))
+            _
+            (a/run*
+              (a/genkey
+                {:storepass "password"
+                 :keystore f
+                 :alias "mykey"}
+                [[:dname
+                  [[:param {:name "CN" :value "Joe Blogg"}]
+                   [:param {:name "OU" :value "Acme Lab"}]
+                   [:param {:name "O" :value "Acme Inc."}]
+                   [:param {:name "C" :value "US"}]]]]))]
+        (.exists (io/file f))))
 
   (is (let [d (ctd<>)
             f (ctf<>)
@@ -116,7 +159,7 @@
             f (io/file src "Test.java")
             _ (spit f javacode)
             _
-            (a/runTasks*
+            (a/run*
               (a/javac
                 {:srcdir (.getCanonicalPath root)
                  :destdir (.getCanonicalPath out)
