@@ -174,7 +174,7 @@
                  [:classpath
                   {}
                   [[:path
-                    {:location (.getCanonicalPath tmpdir)}]
+                    {:location (.getCanonicalPath ^File tmpdir)}]
                    [:fileset {:dir tmpdir
                               :includes {:name "**/*.jar"}}]]]])
               (a/sleep {:seconds "2"})

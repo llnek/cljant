@@ -9,60 +9,26 @@
 (ns ^{:doc "Apache Ant project & task wrappers.
            The anatomy of an ant task is a xml construct,
            where the attributes are termed as options and
-           nested elements are treated as vectors of
-           vectors or maps."
+           nested elements are treated as vectors inside of
+           a vector."
       :author "Kenneth Leung"}
 
   czlab.antclj.antlib
 
   (:import [org.apache.tools.ant.taskdefs.optional.unix Symlink]
+           [org.apache.tools.ant.types AbstractFileSet]
+           [org.apache.tools.ant.taskdefs Delete]
            [java.beans
             FeatureDescriptor
             MethodDescriptor
             Introspector
             PropertyDescriptor]
-           [java.lang.reflect Method]
+           [java.lang.reflect Constructor Method]
            [java.util Map]
            [java.io File]
-           [org.apache.tools.ant.taskdefs
-            Javadoc
-            Java
-            Copy
-            Chmod
-            Concat
-            Move
-            Mkdir
-            Tar
-            Replace
-            ExecuteOn
-            Delete
-            Jar
-            Zip
-            ExecTask
-            Javac
-            Javadoc$AccessType
-            Replace$Replacefilter
-            Replace$NestedString
-            Tar$TarFileSet
-            Tar$TarCompressionMethod
-            Javac$ImplementationSpecificArgument]
            [org.apache.tools.ant.listener
             AnsiColorLogger
             TimestampedLogger]
-           [org.apache.tools.ant.types
-            Commandline$Argument
-            Commandline$Marker
-            PatternSet$NameEntry
-            Environment$Variable
-            FileList$FileName
-            FileList
-            AbstractFileSet
-            ZipFileSet
-            Reference
-            Mapper
-            FileSet
-            Path
-            DirSet]
            [org.apache.tools.ant
             IntrospectionHelper
             ProjectComponent
@@ -70,20 +36,8 @@
             Project
             Target
             Task]
-           [org.apache.tools.ant.taskdefs.optional.junit
-            FormatterElement$TypeAttribute
-            JUnitTask$SummaryAttribute
-            JUnitTask$ForkMode
-            JUnitTask
-            JUnitTest
-            BatchTest
-            FormatterElement]
            [java.rmi.server UID]
-           [clojure.lang APersistentMap]
-           [org.apache.tools.ant.util
-            FileNameMapper
-            ChainedMapper
-            GlobPatternMapper])
+           [clojure.lang APersistentMap])
 
   (:require [clojure.java.io :as io]
             [clojure.core :as cc]
@@ -98,7 +52,7 @@
 (defn ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
 (defn ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
 
-(declare maybeCfgNested)
+(declare cfgNested)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (def
@@ -117,7 +71,7 @@
 (def ^:private pred-t (constantly true))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- ctor! "" [cz pj]
+(defn- ctor! "" [^Class cz ^Project pj]
   (let
     [c0 (try (. cz
                 getConstructor
@@ -129,17 +83,17 @@
                   (into-array Class [Project]))
                (catch Throwable _)))
      r0
-     (some-> c0
+     (some-> ^Constructor c0
              (.newInstance (make-array Object 0)))
      r1
-     (some-> c1
+     (some-> ^Constructor c1
              (.newInstance (into-array Object [pj])))
      rc (or r0 r1)]
     (some->> rc (.setProjectReference pj))
     rc))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+;;better colors that are not *dimmed*
 (def
   ^:private
   ansiLogger
@@ -171,13 +125,13 @@
       (.executeTarget (.getName t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+;;trick to avoid reflection warning
 (defmacro ^:private gfdn
   "" [d] `(.getName ~(with-meta d {:tag 'FeatureDescriptor})))
 
 (def ^:private create-opstrs ["addConfigured" "add" "create"])
 (def ^:private create-ops (zipmap create-opstrs
-                                  (mapv #(.length %) create-opstrs)))
+                                  (mapv #(.length ^String %) create-opstrs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -208,14 +162,13 @@
        @dftprj getDataTypeDefinitions)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+;;These are the special methods for aggregating nested elements
 (defn- tstSpecOps? "" [^MethodDescriptor d]
   (let
     [mtd (.getMethod d)
      mn (gfdn d)
      pms (.getParameterTypes mtd)
-     pc (count pms)
-     rt (.getReturnType mtd)]
+     pc (count pms)]
     (or
       (and (cs/starts-with? mn "addConfigured")
            (== 1 pc))
@@ -245,7 +198,7 @@
 (defn- getBeanInfo "" [^Class cz]
   (let [b (Introspector/getBeanInfo cz)]
     {:props (getBInfo (.getPropertyDescriptors b))
-     :ops (getBInfo (.getMethodDescriptors b))
+     ;;:ops (getBInfo (.getMethodDescriptors b))
      :aggrs (getCreatorInfo (.getMethodDescriptors b))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -253,11 +206,11 @@
 (defn- beanie "" [m]
   (persistent!
     (reduce
-      #(let [[k v] %2]
+      #(let [[_ v] %2]
          (assoc! %1 v (getBeanInfo v))) (transient {}) m)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;cache ant task names as symbols, and cache bean-info of class
+;;cache bean-info of class
 (if-not @beansCooked
   (do
     (def
@@ -269,7 +222,7 @@
 ;;
 (defn- setOptions
   "Use reflection to invoke setters -> to set options
-  on the pojo"
+  on the pojo: see ref. ant#IntrospectionHelper"
   [^Project pj pojo options]
   (let [h (IntrospectionHelper/getHelper pj
                                          (class pojo))
@@ -290,9 +243,9 @@
   "Configure a project component"
   {:tag ProjectComponent}
 
-  ([^Project pj ^ProjectComponent pc options nested]
+  ([pj pc options nested]
    (setOptions pj pc options)
-   (maybeCfgNested pj pc nested)
+   (cfgNested pj pc nested)
    pc)
   ([pj pc options]
    (projcomp<> pj pc options nil))
@@ -300,14 +253,19 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- nest "" [pj par elem aggrs]
+(defn- nest
+  "Element is like [:fileset {:a b :c d} [[nested ...][nested ...]]].
+  At the end of this function, the parent would have *added* this
+  element as a child object"
+  [pj par elem aggrs]
+
   (let [op (first elem)
         s (cs/lower-case (name op))
         dc
         (or (cc/get aggrs (str "addconfigured" s))
             (cc/get aggrs (str "add" s))
             (cc/get aggrs (str "create" s)))
-        md (some-> dc .getMethod)
+        md (some-> ^MethodDescriptor dc .getMethod)
         _ (when (nil? md)
             (trap! (str "Unknown element " s)))
         rt (.getReturnType md)
@@ -315,8 +273,8 @@
         pms (.getParameterTypes md)]
     (if (cs/starts-with? mn "add")
       (let
-        [dt (cc/get _types s)
-         p1 (first pms)
+        [^Class dt (cc/get _types s)
+         ^Class p1 (first pms)
          co
          (if (and (some? dt)
                   (.isAssignableFrom p1 dt))
@@ -328,8 +286,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn- maybeCfgNested "" [pj par nested]
+(defn- cfgNested
+  "*nested* typically is a vector of vectors.  Each vector models
+  an xml element.  However, a special case is when nested is a
+  string in which case the method addText is called"
+  [pj par nested]
+
   (let [pz (class par)
+        ;; if we find a new class, bean it and cache it
         b (if-some [m (cc/get @_beans pz)]
             m
             (let [m (getBeanInfo pz)]
@@ -339,10 +303,12 @@
       (trap! (str "no bean info for class " pz)))
     (cond
       (string? nested)
-      (if (contains? ops "addtext")
-        (.addText par nested)
+      (if-some [dc (cc/get ops "addtext")]
+        (let [m (. ^MethodDescriptor dc getMethod)]
+          (. m invoke par (into-array Object [nested])))
         (trap! (str "incorrect use of text string for " pz)))
-      :else
+      (or (nil? nested)
+          (coll? nested))
       (doseq [p nested
               :let [p2 (second p)
                     pc (count p)
@@ -353,23 +319,29 @@
           (projcomp<> pj (nest pj par p ops) nil p2)
           (projcomp<> pj (nest pj par p ops) p2 p3))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defn- ctask<>
+  "" ^Task [^Project p ^String tt ^String tm]
+
+  (doto (.createTask p tt) (.setTaskName tm)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn- configTask
   "Reify and configure actual ant tasks"
   ^Task [^Project pj
          ^Target target
-         {:keys [tname task options nested]}]
+         {:keys [tname ttype options nested]}]
 
-  (let []
-    (->> (doto ^Task
-           task
+  (let [tk (ctask<> pj ttype tname)]
+    (->> (doto tk
            (.setProject pj)
            (.setOwningTarget target))
          (.addTask target))
-    (setOptions pj task options)
-    (maybeCfgNested pj task nested)
-    task))
+    (setOptions pj tk options)
+    (cfgNested pj tk nested)
+    tk))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -397,7 +369,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn runTarget
+(defn- runTarget
   "Run ant target"
   [target tasks]
   (-> (projAntTasks target tasks) execTarget))
@@ -405,15 +377,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn runTarget*
-  "Run ant target" [target & tasks] (runTarget target tasks))
+  "Run ant target" [^String target & tasks] (runTarget target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn runTasks "Run ant tasks" [tasks] (runTarget "" tasks))
+;;(defn runTasks "Run ant tasks" [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn runTasks* "Run ant tasks" [& tasks] (runTarget "" tasks))
+;;(defn runTasks* "Run ant tasks" [& tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -421,43 +393,31 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defn run "Run ant tasks" [tasks] (runTarget "" tasks))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- ctask<>
-  "" ^Task [^Project p ^String tt ^String tm]
-
-  (doto (.createTask p tt) (.setTaskName tm)))
+;;(defn run "Run ant tasks" [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defmacro ^:private antTask<>
   "Generate wrapper function for an ant task"
-  ([pj sym docstr func preopt]
-   (let [s (str func)
-         tm (cs/lower-case
-              (.substring s
-                          (inc (.lastIndexOf s "."))))]
-     `(defn ~sym ~docstr ;;{:no-doc true}
-        ;; if not options then it could be nested
-        ([~'options]
-         (if-not (map? ~'options)
-           (~sym nil ~'options)
-           (~sym ~'options nil)))
-        ([] (~sym nil nil))
-        ([~'options  ~'nestedElements]
-         (let [tk# (ctask<> ~pj ~s ~tm)
-               o# (or ~'options {})
-               n# (or ~'nestedElements [])
-               r# {:pre-options ~preopt
-                   :tname ~tm
-                   :task tk#
-                   :options o#
-                   :nested n#}]
-             r#)))))
-  ([pj sym docstr func]
-   `(antTask<> ~pj ~sym ~docstr ~func nil)))
+  [pj sym docstr func]
+
+  (let [s (str func)
+        tm (cs/lower-case
+             (.substring s
+                         (inc (.lastIndexOf s "."))))]
+    `(defn ~sym ~docstr ;;{:no-doc true}
+       ;; if not options then it could be nested
+       ([~'options]
+        (if-not (map? ~'options)
+          (~sym nil ~'options)
+          (~sym ~'options nil)))
+       ([] (~sym nil nil))
+       ([~'options  ~'nestedElements]
+        (doto
+          {:tname ~tm
+           :ttype ~s
+           :options (or ~'options {})
+           :nested (or ~'nestedElements [])})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

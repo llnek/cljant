@@ -25,7 +25,7 @@
                          [net.mikera/cljunit "0.6.0" :scope "test"]]}
              :uberjar {:aot :all}}
 
-  :global-vars {*warn-on-reflection* false}
+  :global-vars {*warn-on-reflection* true}
   :target-path "out/%s"
   :omit-source true
   :aot :all
