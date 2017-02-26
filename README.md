@@ -12,6 +12,10 @@ Add the following dependency to your `project.clj` file:
 
     [io.czlab/antclj "1.0.0"]
 
+## Documentation
+
+* [Task Docs](http://ant.apache.org/manual/index.html)
+
 ## Usage
 
 ```clojure
