@@ -6,7 +6,7 @@
             :name "Eclipse Public License"}
   :url "https://github.com/llnek/antclj"
 
-  :description "Apache ant wrapped in clojure"
+  :description "Apache ant wrapped in clojure."
 
   :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
                  ;;[org.apache.ant/ant-launcher "1.10.1"]
