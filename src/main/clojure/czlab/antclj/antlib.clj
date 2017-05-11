@@ -51,7 +51,15 @@
 (defn uid "" ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
 (defn ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
 (defn ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(defmacro ^:private do-with "" [bindings & more]
+  (assert (= 2 (count bindings)))
+  (let [a (first bindings)
+        b (last bindings)]
+      `(let [~a ~b] ~@more ~a)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 (declare cfgNested)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -73,24 +81,19 @@
 ;;
 (defn- ctor! "" [^Class cz ^Project pj]
   (let
-    [c0 (try (. cz
-                getConstructor
-                (make-array Class 0))
+    [c0 (try (.getConstructor cz
+                              (make-array Class 0))
              (catch Throwable _))
      c1 (if (nil? c0)
-          (try (. cz
-                  getConstructor
-                  (into-array Class [Project]))
-               (catch Throwable _)))
-     r0
-     (some-> ^Constructor c0
-             (.newInstance (make-array Object 0)))
-     r1
-     (some-> ^Constructor c1
-             (.newInstance (into-array Object [pj])))
-     rc (or r0 r1)]
-    (some->> rc (.setProjectReference pj))
-    rc))
+          (try (.getConstructor cz
+                                (into-array Class [Project]))
+               (catch Throwable _)))]
+     (doto
+       (or (some-> ^Constructor c0
+                   (.newInstance (make-array Object 0)))
+           (some-> ^Constructor c1
+                   (.newInstance (into-array Object [pj]))))
+       (some->> (.setProjectReference pj)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;better colors that are not *dimmed*
@@ -152,22 +155,21 @@
 (def
   ^:private _tasks
   (cljMap
-    (. ^Project
-       @dftprj getTaskDefinitions)
+    (.getTaskDefinitions ^Project @dftprj)
     (fn [k v] (not (contains? skipped-tasks k)))))
 (def
   ^:private _types
   (cljMap
-    (. ^Project
-       @dftprj getDataTypeDefinitions)))
+    (.getDataTypeDefinitions ^Project @dftprj )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;These are the special methods for aggregating nested elements
 (defn- tstSpecOps? "" [^MethodDescriptor d]
   (let
-    [mtd (.getMethod d)
+    [pms (.. d
+             getMethod
+             getParameterTypes)
      mn (gfdn d)
-     pms (.getParameterTypes mtd)
      pc (count pms)]
     (or
       (and (cs/starts-with? mn "addConfigured")
@@ -224,18 +226,17 @@
   "Use reflection to invoke setters -> to set options
   on the pojo: see ref. ant#IntrospectionHelper"
   [^Project pj pojo options]
-  (let [h (IntrospectionHelper/getHelper pj
-                                         (class pojo))
-        z (class pojo)
+  (let [z (class pojo)
         options
         (cond
           (instance? AbstractFileSet pojo)
           (merge {:erroronmissingdir false} options)
           (= z Delete)
           (merge {:includeemptydirs true} options)
-          :else options)]
+          :else options)
+        h (IntrospectionHelper/getHelper pj z)]
     (doseq [[k v] options]
-      (. h setAttribute pj pojo (name k) v))))
+      (.setAttribute h pj pojo (name k) v))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -266,22 +267,20 @@
             (cc/get aggrs (str "add" s))
             (cc/get aggrs (str "create" s)))
         md (some-> ^MethodDescriptor dc .getMethod)
-        _ (when (nil? md)
+        _ (if (nil? md)
             (trap! (str "Unknown element " s)))
         rt (.getReturnType md)
         mn (.getName md)
         pms (.getParameterTypes md)]
     (if (cs/starts-with? mn "add")
-      (let
-        [^Class dt (cc/get _types s)
-         ^Class p1 (first pms)
-         co
-         (if (and (some? dt)
-                  (.isAssignableFrom p1 dt))
-           (ctor! dt pj)
-           (ctor! p1 pj))]
-        (.invoke md par (into-array Object [co]))
-        co)
+      (let [^Class dt (cc/get _types s)
+            ^Class p1 (first pms)]
+        (do-with
+          [co (if (some->> dt
+                           (.isAssignableFrom p1))
+                (ctor! dt pj)
+                (ctor! p1 pj))]
+          (.invoke md par (into-array Object [co]))))
       (.invoke md par (make-array Object 0)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -294,19 +293,19 @@
 
   (let [pz (class par)
         ;; if we find a new class, bean it and cache it
-        b (if-some [m (cc/get @_beans pz)]
-            m
-            (let [m (getBeanInfo pz)]
-              (swap! _beans assoc pz m) m))
+        b (cc/get @_beans pz)
+        b (if (nil? b)
+            (do-with [m (getBeanInfo pz)]
+              (swap! _beans assoc pz m)) b)
+        _ (if (nil? b)
+            (trap! (str "no bean info for " pz)))
         ops (:aggrs b)]
-    (if (nil? b)
-      (trap! (str "no bean info for class " pz)))
     (cond
       (string? nested)
       (if-some [dc (cc/get ops "addtext")]
-        (let [m (. ^MethodDescriptor dc getMethod)]
-          (. m invoke par (into-array Object [nested])))
-        (trap! (str "incorrect use of text string for " pz)))
+        (-> (.getMethod ^MethodDescriptor dc)
+            (.invoke par (into-array Object [nested])))
+        (trap! (str "wrong use of text string for " pz)))
       (or (nil? nested)
           (coll? nested))
       (doseq [p nested
@@ -334,14 +333,13 @@
          ^Target target
          {:keys [tname ttype options nested]}]
 
-  (let [tk (ctask<> pj ttype tname)]
+  (do-with [tk (ctask<> pj ttype tname)]
     (->> (doto tk
            (.setProject pj)
            (.setOwningTarget target))
          (.addTask target))
     (setOptions pj tk options)
-    (cfgNested pj tk nested)
-    tk))
+    (cfgNested pj tk nested)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -350,14 +348,13 @@
   ^Target
   [^String target tasks]
 
-  (let [pj @dftprj
-        tg (Target.)]
-    (. tg setName (or target ""))
-    (. ^Project pj addOrReplaceTarget tg)
-    ;;(println (str "number of tasks ==== " (count tasks)))
-    (doseq [t tasks]
-      (configTask pj tg t))
-    tg))
+  (do-with [tg (Target.)]
+    (let [pj @dftprj]
+      (.setName tg (or target ""))
+      (.addOrReplaceTarget ^Project pj tg)
+      ;;(println (str "number of tasks ==== " (count tasks)))
+      (doseq [t tasks]
+        (configTask pj tg t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -381,19 +378,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;(defn runTasks "Run ant tasks" [tasks] (runTarget "" tasks))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;(defn runTasks* "Run ant tasks" [& tasks] (runTarget "" tasks))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 (defn run* "Run ant tasks" [& tasks] (runTarget "" tasks))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;(defn run "Run ant tasks" [tasks] (runTarget "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -412,7 +397,7 @@
           (~sym nil ~'options)
           (~sym ~'options nil)))
        ([] (~sym nil nil))
-       ([~'options  ~'nestedElements]
+       ([~'options ~'nestedElements]
         (doto
           {:tname ~tm
            :ttype ~s
@@ -457,12 +442,12 @@
    (let [dir (io/file d)]
      (if (.exists dir)
        (run* (delete
-                    {:removeNotFollowedSymlinks true
-                     :quiet quiet}
-                    [[:fileset
-                      {:followsymlinks false :dir dir}
-                      [[:include {:name "**/*"}]]]]))
-      (.mkdirs dir)))))
+               {:removeNotFollowedSymlinks true
+                :quiet quiet}
+               [[:fileset
+                 {:followsymlinks false :dir dir}
+                 [[:include {:name "**/*"}]]]]))
+       (.mkdirs dir)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -524,17 +509,17 @@
 ;;
 (defn disableAntLogger "Remove build logger" []
   (if
-    (-> (. ^Project @dftprj getBuildListeners)
+    (-> (.getBuildListeners ^Project @dftprj)
         (.contains ansiLogger))
-    (. ^Project @dftprj removeBuildListener ansiLogger)))
+    (.removeBuildListener ^Project @dftprj ansiLogger)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn enableAntLogger "Add build logger" []
   (if-not
-    (-> (. ^Project @dftprj getBuildListeners)
+    (-> (.getBuildListeners ^Project @dftprj)
         (.contains ansiLogger))
-    (. ^Project @dftprj addBuildListener ansiLogger)))
+    (.addBuildListener ^Project @dftprj ansiLogger)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF

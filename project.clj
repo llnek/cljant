@@ -21,7 +21,6 @@
 
   :profiles {:provided {:dependencies
                         [[org.clojure/clojure "1.8.0" :scope "provided"]
-                         [junit/junit "4.12" :scope "test"]
                          [net.mikera/cljunit "0.6.0" :scope "test"]]}
              :uberjar {:aot :all}}
 
