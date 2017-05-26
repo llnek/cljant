@@ -8,8 +8,8 @@
 
   :description "Apache ant wrapped in clojure."
 
-  :dependencies [;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
-                 ;;[org.apache.ant/ant-launcher "1.10.1"]
+  :dependencies [;;;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
+                 ;;;;[org.apache.ant/ant-launcher "1.10.1"]
                  [org.apache.ant/ant-junit4 "1.10.1" :scope "test"]
                  [org.apache.ant/ant-junit "1.10.1" :scope "test"]
                  [junit/junit "4.12" :scope "test"]
