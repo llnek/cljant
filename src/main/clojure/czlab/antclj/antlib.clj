@@ -99,7 +99,7 @@
 ;;better colors that are not *dimmed*
 (def
   ^:private
-  ansiLogger
+  _ansi-logger_
   (let [f (io/file tmpdir "czlab-antlogansi.colors")
         s (cs/join "\n"
                    ["AnsiColorLogger.ERROR_COLOR=0;31"
@@ -352,7 +352,6 @@
     (let [pj @dftprj]
       (.setName tg (or target ""))
       (.addOrReplaceTarget ^Project pj tg)
-      ;;(println (str "number of tasks ==== " (count tasks)))
       (doseq [t tasks]
         (configTask pj tg t)))))
 
@@ -510,16 +509,16 @@
 (defn disableAntLogger "Remove build logger" []
   (if
     (-> (.getBuildListeners ^Project @dftprj)
-        (.contains ansiLogger))
-    (.removeBuildListener ^Project @dftprj ansiLogger)))
+        (.contains _ansi-logger_))
+    (.removeBuildListener ^Project @dftprj _ansi-logger_)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 (defn enableAntLogger "Add build logger" []
   (if-not
     (-> (.getBuildListeners ^Project @dftprj)
-        (.contains ansiLogger))
-    (.addBuildListener ^Project @dftprj ansiLogger)))
+        (.contains _ansi-logger_))
+    (.addBuildListener ^Project @dftprj _ansi-logger_)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF
