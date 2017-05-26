@@ -33,11 +33,18 @@
   :java-source-paths ["src/main/java" "src/test/java"]
   :source-paths ["src/main/clojure"]
   :test-paths ["src/test/clojure"]
-  ;;:resource-paths ["src/main/resources"]
 
   :jvm-opts ["-Dlog4j.configurationFile=file:attic/log4j2.xml"]
   :javac-options ["-source" "7"
-                  "-Xlint:unchecked" "-Xlint:-options" "-Xlint:deprecation"])
+                  "-Xlint:unchecked" "-Xlint:-options" "-Xlint:deprecation"]
+
+  :pom-addition [:developers [:developer {:id "llnek"}
+                              [:name "Kenneth Leung"]
+                              [:url "https://github.com/llnek"]]]
+
+  :deploy-repositories
+  [["releases"
+    {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"} ]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF
