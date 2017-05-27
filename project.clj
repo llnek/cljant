@@ -2,6 +2,16 @@
 ;;
 (defproject io.czlab/antclj "1.0.3"
 
+  ;;add these for maven deployment
+  :pom-addition
+  [:developers [:developer
+                [:name "Kenneth Leung"]
+                [:url "https://github.com/llnek"]]]
+  :deploy-repositories
+  [["releases" {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"}
+    "snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"}]]
+  ;;for maven deployment
+
   :license {:url "http://www.eclipse.org/legal/epl-v10.html"
             :name "Eclipse Public License"}
   :url "https://github.com/llnek/antclj"
