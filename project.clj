@@ -7,6 +7,8 @@
   [:developers [:developer
                 [:name "Kenneth Leung"]
                 [:url "https://github.com/llnek"]]]
+  ;;trick lein to generate javadoc and sources artifacts
+  :classifiers {:javadoc {} :sources {}}
   :deploy-repositories
   [["releases" {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"}
     "snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"}]]
