@@ -23,7 +23,7 @@ Add the following dependency to your `project.clj` file:
   (:require [czlab.antclj.antlib :as a]))
 
 (defn compileAndRun [srcDir destDir]
-  (a/run*
+  (a/run
     (a/javac
       {:srcdir srcDir
        :destdir destDir
