@@ -1,4 +1,4 @@
-;; Copyright (c) 2013-2017, Kenneth Leung. All rights reserved.
+;; Copyright (c) 2013-2019, Kenneth Leung. All rights reserved.
 ;; The use and distribution terms for this software are covered by the
 ;; Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;; which can be found in the file epl-v10.html at the root of this distribution.
@@ -48,58 +48,50 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;(set! *warn-on-reflection* true)
 (def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
-(defn uid "" ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
-(defn ctf<> "" ^File [& [d]] (io/file (or d tmpdir) (uid)))
-(defn ctd<> "" ^File [& [d]] (doto (ctf<> d) (.mkdirs)))
+(defn uid ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private do-with "" [bindings & more]
+(defmacro ^:private do-with [bindings & more]
   (assert (= 2 (count bindings)))
   (let [a (first bindings)
-        b (last bindings)]
-      `(let [~a ~b] ~@more ~a)))
+        b (last bindings)] `(let [~a ~b] ~@more ~a)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(declare cfgNested)
+(declare cfg-nested)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(def
-  ^:private
-  skipped-tasks #{"ant" "antcall" "import" "include"
-                  "copydir" "copyfile" "copypath"
-                  "deltree" "execon" "javadoc2"
-                  "jlink" "jspc" "mimemail"
-                  "rename" "renameext" "filter"
-                  "antstructure" "antversion"})
+(def ^:private skipped-tasks #{"ant" "antcall" "import" "include"
+                               "copydir" "copyfile" "copypath"
+                               "deltree" "execon" "javadoc2"
+                               "jlink" "jspc" "mimemail"
+                               "rename" "renameext" "filter"
+                               "antstructure" "antversion"})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private nth?? "" [c p] `(first (drop (dec ~p) ~c)))
-(defmacro ^:private trap! "" [s] `(throw (Exception. ~s)))
+(defmacro ^:private nth?? [c p] `(first (drop (dec ~p) ~c)))
+(defmacro ^:private trap! [& xs] `(throw (Exception. ~@xs)))
 (def ^:private pred-t (constantly true))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- ctor! "" [^Class cz ^Project pj]
+(defn- ctor! [^Class cz ^Project pj]
   (let
-    [c0 (try (.getConstructor cz
-                              (make-array Class 0))
+    [^Constructor
+     c0 (try (->> (make-array Class 0)
+                  (.getConstructor cz))
              (catch Throwable _))
+     ^Constructor
      c1 (if (nil? c0)
-          (try (.getConstructor cz
-                                (into-array Class [Project]))
+          (try (->> (into-array Class [Project])
+                    (.getConstructor cz))
                (catch Throwable _)))]
-     (doto
-       (or (some-> ^Constructor c0
-                   (.newInstance (make-array Object 0)))
-           (some-> ^Constructor c1
-                   (.newInstance (into-array Object [pj]))))
-       (some->> (.setProjectReference pj)))))
+    (doto
+      (or (some-> c0 (.newInstance (make-array Object 0)))
+          (some-> c1
+                  (.newInstance (into-array Object [pj]))))
+      (some->> (.setProjectReference pj)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;better colors that are not *dimmed*
-(def
-  ^:private
-  _ansi-logger_
+(def ^:private _ansi-logger_
   (let [f (io/file tmpdir "czlab-antlogansi.colors")
         s (cs/join "\n"
                    ["AnsiColorLogger.ERROR_COLOR=0;31"
@@ -110,36 +102,32 @@
     (if-not (.exists f) (spit f s))
     (System/setProperty "ant.logger.defaults"
                         (.getCanonicalPath f))
-    (doto
-      (AnsiColorLogger.)
+    (doto (AnsiColorLogger.)
       (.setOutputPrintStream System/out)
       (.setErrorPrintStream System/err)
       (.setMessageOutputLevel Project/MSG_INFO))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- project<>
-  "" ^Project [] (doto (Project.) .init (.setName "projx")))
+(defn- project<> ^Project [] (doto (Project.) .init (.setName "projx")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- execTarget "" [^Target t]
+(defn- exec-target [^Target t]
   (-> (.getProject t)
       (.executeTarget (.getName t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;trick to avoid reflection warning
-(defmacro ^:private gfdn
-  "" [d] `(.getName ~(with-meta d {:tag 'FeatureDescriptor})))
+;;trick to type hint to avoid reflection warning
+(defmacro ^:private gfdn [d]
+  `(.getName ~(with-meta d {:tag 'FeatureDescriptor})))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def ^:private create-opstrs ["addConfigured" "add" "create"])
 (def ^:private create-ops (zipmap create-opstrs
                                   (mapv #(.length ^String %) create-opstrs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- cljMap ""
-  ([m] (cljMap m pred-t))
+(defn- clj-map
+  ([m] (clj-map m pred-t))
   ([m pred]
    (persistent!
      (reduce
@@ -147,82 +135,75 @@
           (if (pred k v) (assoc! %1 k v) %1)) (transient {}) m))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defonce ^:private beans-cooked? (atom false))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;create a default project.
 (defonce ^:private dftprj (atom (project<>)))
-(defonce ^:private beansCooked (atom false))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(def
-  ^:private _tasks
-  (cljMap
+;Get a list of task definitions.
+(def ^:private _tasks
+  (clj-map
     (.getTaskDefinitions ^Project @dftprj)
     (fn [k v] (not (contains? skipped-tasks k)))))
-(def
-  ^:private _types
-  (cljMap
-    (.getDataTypeDefinitions ^Project @dftprj )))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;These are the special methods for aggregating nested elements
-(defn- tstSpecOps? "" [^MethodDescriptor d]
-  (let
-    [pms (.. d
-             getMethod
-             getParameterTypes)
-     mn (gfdn d)
-     pc (count pms)]
-    (or
-      (and (cs/starts-with? mn "addConfigured")
-           (== 1 pc))
-      (and (cs/starts-with? mn "add")
-           (== 1 pc))
-      (and (cs/starts-with? mn "create")
-           (== 0 pc)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getCreatorInfo "" [descs]
+;Get all the type definitions.
+(def ^:private _types
+  (clj-map (.getDataTypeDefinitions ^Project @dftprj )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn- tst-spec-ops?
+  "Test for special methods which aggregates nested elements."
+  [^MethodDescriptor d]
+  (let
+    [pms (.. d getMethod getParameterTypes)
+     mn (gfdn d)
+     pc (count pms)]
+    (or (and (cs/starts-with? mn "create") (== 0 pc))
+        (and (cs/starts-with? mn "add") (== 1 pc))
+        (and (cs/starts-with? mn "addConfigured") (== 1 pc)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn- get-creator-info [descs]
   (persistent!
     (reduce
-      #(if (tstSpecOps? %2)
+      #(if (tst-spec-ops? %2)
          (assoc! %1
                  (cs/lower-case (gfdn %2)) %2) %1) (transient {}) descs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getBInfo "" [descs]
+(defn- get-binfo [descs]
   (persistent!
     (reduce
       #(assoc! %1 (keyword (gfdn %2)) %2) (transient {}) descs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- getBeanInfo "" [^Class cz]
+(defn- get-bean-info [^Class cz]
   (let [b (Introspector/getBeanInfo cz)]
-    {:props (getBInfo (.getPropertyDescriptors b))
-     ;;:ops (getBInfo (.getMethodDescriptors b))
-     :aggrs (getCreatorInfo (.getMethodDescriptors b))}))
+    {:props (get-binfo (.getPropertyDescriptors b))
+     ;;:ops (get-binfo (.getMethodDescriptors b))
+     :aggrs (get-creator-info (.getMethodDescriptors b))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- beanie "" [m]
+(defn- beanie [m]
   (persistent!
     (reduce
       #(let [[_ v] %2]
-         (assoc! %1 v (getBeanInfo v))) (transient {}) m)))
+         (assoc! %1 v (get-bean-info v))) (transient {}) m)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;cache bean-info of class
-(if-not @beansCooked
+(if-not @beans-cooked?
   (do
     (def
       ^:private _beans (atom (merge (beanie _tasks)
                                     (beanie _types))))
-    (reset! beansCooked true)))
+    (reset! beans-cooked? true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- setOptions
+(defn- set-options
   "Use reflection to invoke setters -> to set options
   on the pojo: see ref. ant#IntrospectionHelper"
   [^Project pj pojo options]
@@ -239,15 +220,12 @@
       (.setAttribute h pj pojo (name k) v))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 (defn- projcomp<>
-  "Configure a project component"
+  "Configure a project component."
   {:tag ProjectComponent}
-
   ([pj pc options nested]
-   (setOptions pj pc options)
-   (cfgNested pj pc nested)
-   pc)
+   (set-options pj pc options)
+   (cfg-nested pj pc nested) pc)
   ([pj pc options]
    (projcomp<> pj pc options nil))
   ([pj pc] (projcomp<> pj pc nil nil)))
@@ -259,7 +237,6 @@
   At the end of this function, the parent would have *added* this
   element as a child object"
   [pj par elem aggrs]
-
   (let [op (first elem)
         s (cs/lower-case (name op))
         dc
@@ -284,18 +261,16 @@
       (.invoke md par (make-array Object 0)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- cfgNested
+(defn- cfg-nested
   "*nested* typically is a vector of vectors.  Each vector models
   an xml element.  However, a special case is when nested is a
   string in which case the method addText is called"
   [pj par nested]
-
   (let [pz (class par)
         ;; if we find a new class, bean it and cache it
         b (cc/get @_beans pz)
         b (if (nil? b)
-            (do-with [m (getBeanInfo pz)]
+            (do-with [m (get-bean-info pz)]
               (swap! _beans assoc pz m)) b)
         _ (if (nil? b)
             (trap! (str "no bean info for " pz)))
@@ -319,72 +294,60 @@
           (projcomp<> pj (nest pj par p ops) p2 p3))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 (defn- ctask<>
-  "" ^Task [^Project p ^String tt ^String tm]
-
+  ^Task [^Project p ^String tt ^String tm]
   (doto (.createTask p tt) (.setTaskName tm)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- configTask
+(defn- config-task
   "Reify and configure actual ant tasks"
   ^Task [^Project pj
          ^Target target
          {:keys [tname ttype options nested]}]
-
-  (do-with [tk (ctask<> pj ttype tname)]
+  (do-with
+    [tk (ctask<> pj ttype tname)]
     (->> (doto tk
            (.setProject pj)
            (.setOwningTarget target))
          (.addTask target))
-    (setOptions pj tk options)
-    (cfgNested pj tk nested)))
+    (set-options pj tk options)
+    (cfg-nested pj tk nested)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- projAntTasks
+(defn- proj-ant-tasks
   "Bind all the tasks to a target and a project"
   ^Target
   [^String target tasks]
-
   (do-with [tg (Target.)]
     (let [pj @dftprj]
       (.setName tg (or target ""))
       (.addOrReplaceTarget ^Project pj tg)
-      (doseq [t tasks]
-        (configTask pj tg t)))))
+      (doseq [t tasks] (config-task pj tg t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- projAntTasks*
+(defn- XXproj-ant-tasks*
   "Bind all the tasks to a target and a project"
   ^Target
   [target & tasks]
-  (projAntTasks target tasks))
+  (proj-ant-tasks target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn- runTarget
+(defn- run-target*
   "Run ant target"
   [target tasks]
-  (-> (projAntTasks target tasks) execTarget))
+  (-> (proj-ant-tasks target tasks) exec-target))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn runTarget*
-  "Run ant target" [^String target & tasks] (runTarget target tasks))
+(defn run-target
+  "Run ant target" [^String target & tasks] (run-target* target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn run* "Run ant tasks" [& tasks] (runTarget "" tasks))
+(defn run "Run ant tasks" [& tasks] (run-target* "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private antTask<>
+(defmacro ^:private ant-task<>
   "Generate wrapper function for an ant task"
   [pj sym docstr func]
-
   (let [s (str func)
         tm (cs/lower-case
              (.substring s
@@ -404,117 +367,96 @@
            :nested (or ~'nestedElements [])})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defmacro ^:private declAntTasks
-  "Introspect the default project and cache all registered ant tasks"
+(defmacro ^:private decl-ant-tasks
+  "Introspect the default project and cache all registered ant tasks."
   [pj]
   (let [ts (mapv #(symbol %) (keys _tasks))]
     `(do ~@(map (fn [a]
-                  `(antTask<> ~pj ~a "" ~a)) ts))))
+                  `(ant-task<> ~pj ~a "" ~a)) ts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(declAntTasks @dftprj)
+(decl-ant-tasks @dftprj)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn readProperties
+(defn read-properties
   "Read all ant properties" ^APersistentMap []
-
   (let [ps (java.util.Properties.)
-        f (ctf<>)
-        _ (run*
+        f (io/file tmpdir (uid))
+        _ (run
             (echoproperties
-              {:failonerror false
-               :destfile f}))]
-    (with-open [inp (io/input-stream f)] (.load ps inp))
-    (cljMap ps)))
+              {:failonerror false :destfile f}))]
+    (with-open
+      [inp (io/input-stream f)] (.load ps inp)) (clj-map ps)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn cleanDir
+(defn clean-dir
   "Clean an existing dir or create it"
-
-  ([d] (cleanDir d nil))
+  ([d] (clean-dir d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
      (if (.exists dir)
-       (run* (delete
-               {:removeNotFollowedSymlinks true
-                :quiet quiet}
-               [[:fileset
-                 {:followsymlinks false :dir dir}
-                 [[:include {:name "**/*"}]]]]))
+       (run (delete
+              {:removeNotFollowedSymlinks true
+               :quiet quiet}
+              [[:fileset
+                {:followsymlinks false :dir dir}
+                [[:include {:name "**/*"}]]]]))
        (.mkdirs dir)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn deleteDir
+(defn delete-dir
   "Remove a directory"
-
-  ([d] (deleteDir d nil))
+  ([d] (delete-dir d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
      (when (.exists dir)
-       (run*
+       (run
          (delete
            {:removeNotFollowedSymlinks true
             :quiet quiet}
            [[:fileset {:followsymlinks false :dir dir}]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn copyFile
+(defn copy-file
   "Copy a file to the target folder"
   [file toDir]
-
   (.mkdirs (io/file toDir))
-  (run*
-    (copy {:file file :todir toDir})))
+  (run (copy {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn moveFile
+(defn move-file
   "Move a file to the target folder"
   [file toDir]
-
   (.mkdirs (io/file toDir))
-  (run*
-    (move {:file file :todir toDir})))
+  (run (move {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn deleteLink
+(defn delete-link
   "Delete a file system symbolic link"
   [link]
-  (run* (symlink {:action "delete" :link link})))
+  (run (symlink {:action "delete" :link link})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn createLink
+(defn create-link
   "Create a file system symbolic link"
-
-  ([link target] (createLink link target true))
+  ([link target] (create-link link target true))
   ([link target overwrite?]
-   (run*
-     (symlink {:overwrite (boolean overwrite?)
-               :action "single"
-               :link link
-               :resource target}))))
+   (run (symlink {:overwrite (boolean overwrite?)
+                  :action "single"
+                  :link link
+                  :resource target}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn disableAntLogger "Remove build logger" []
+(defn disable-ant-logger "Remove build logger" []
   (if
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))
     (.removeBuildListener ^Project @dftprj _ansi-logger_)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-(defn enableAntLogger "Add build logger" []
+(defn enable-ant-logger "Add build logger" []
   (if-not
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))

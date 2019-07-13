@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defproject io.czlab/antclj "1.0.3"
+(defproject io.czlab/antclj "1.0.4"
 
   ;;add these for maven deployment
   :pom-addition
@@ -22,17 +22,17 @@
 
   :dependencies [;;;;[ant-contrib/ant-contrib "1.0b3" :exclusions [ant]]
                  ;;;;[org.apache.ant/ant-launcher "1.10.1"]
-                 [org.apache.ant/ant-junit4 "1.10.1" :scope "test"]
-                 [org.apache.ant/ant-junit "1.10.1" :scope "test"]
+                 [org.apache.ant/ant-junit4 "1.10.6" :scope "test"]
+                 [org.apache.ant/ant-junit "1.10.6" :scope "test"]
                  [junit/junit "4.12" :scope "test"]
-                 [org.apache.ant/ant "1.10.1"]]
+                 [org.apache.ant/ant "1.10.6"]]
 
-  :plugins [[cider/cider-nrepl "0.14.0"]
-            [lein-cprint "1.2.0"]
-            [lein-codox "0.10.3"]]
+  :plugins [[cider/cider-nrepl "0.21.1"]
+            [lein-cprint "1.3.1"]
+            [lein-codox "0.10.7"]]
 
   :profiles {:provided {:dependencies
-                        [[org.clojure/clojure "1.8.0" :scope "provided"]
+                        [[org.clojure/clojure "1.10.1" :scope "provided"]
                          [net.mikera/cljunit "0.6.0" :scope "test"]]}
              :uberjar {:aot :all}}
 
