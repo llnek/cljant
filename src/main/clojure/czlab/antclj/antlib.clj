@@ -332,17 +332,17 @@
   (proj-ant-tasks target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn- run-target*
+(defn- run-target
   "Run ant target"
   [target tasks]
   (-> (proj-ant-tasks target tasks) exec-target))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn run-target
-  "Run ant target" [^String target & tasks] (run-target* target tasks))
+(defn run-target*
+  "Run ant target" [^String target & tasks] (run-target target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn run "Run ant tasks" [& tasks] (run-target* "" tasks))
+(defn run* "Run ant tasks" [& tasks] (run-target "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private ant-task<>
@@ -378,85 +378,85 @@
 (decl-ant-tasks @dftprj)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn read-properties
+(defn read-properties*
   "Read all ant properties" ^APersistentMap []
   (let [ps (java.util.Properties.)
         f (io/file tmpdir (uid))
-        _ (run
+        _ (run*
             (echoproperties
               {:failonerror false :destfile f}))]
     (with-open
       [inp (io/input-stream f)] (.load ps inp)) (clj-map ps)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn clean-dir
+(defn clean-dir*
   "Clean an existing dir or create it"
-  ([d] (clean-dir d nil))
+  ([d] (clean-dir* d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
      (if (.exists dir)
-       (run (delete
-              {:removeNotFollowedSymlinks true
-               :quiet quiet}
-              [[:fileset
-                {:followsymlinks false :dir dir}
-                [[:include {:name "**/*"}]]]]))
+       (run* (delete
+               {:removeNotFollowedSymlinks true
+                :quiet quiet}
+               [[:fileset
+                 {:followsymlinks false :dir dir}
+                 [[:include {:name "**/*"}]]]]))
        (.mkdirs dir)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn delete-dir
+(defn delete-dir*
   "Remove a directory"
-  ([d] (delete-dir d nil))
+  ([d] (delete-dir* d nil))
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
      (when (.exists dir)
-       (run
+       (run*
          (delete
            {:removeNotFollowedSymlinks true
             :quiet quiet}
            [[:fileset {:followsymlinks false :dir dir}]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn copy-file
+(defn copy-file*
   "Copy a file to the target folder"
   [file toDir]
   (.mkdirs (io/file toDir))
-  (run (copy {:file file :todir toDir})))
+  (run* (copy {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn move-file
+(defn move-file*
   "Move a file to the target folder"
   [file toDir]
   (.mkdirs (io/file toDir))
-  (run (move {:file file :todir toDir})))
+  (run* (move {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn delete-link
+(defn delete-link*
   "Delete a file system symbolic link"
   [link]
-  (run (symlink {:action "delete" :link link})))
+  (run* (symlink {:action "delete" :link link})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn create-link
+(defn create-link*
   "Create a file system symbolic link"
-  ([link target] (create-link link target true))
+  ([link target] (create-link* link target true))
   ([link target overwrite?]
-   (run (symlink {:overwrite (boolean overwrite?)
-                  :action "single"
-                  :link link
-                  :resource target}))))
+   (run* (symlink {:overwrite (boolean overwrite?)
+                   :action "single"
+                   :link link
+                   :resource target}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn disable-ant-logger "Remove build logger" []
+(defn disable-ant-logger* "Remove build logger" []
   (if
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))
     (.removeBuildListener ^Project @dftprj _ansi-logger_)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn enable-ant-logger "Add build logger" []
+(defn enable-ant-logger* "Add build logger" []
   (if-not
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))

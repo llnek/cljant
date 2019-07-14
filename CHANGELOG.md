@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## 1.0.4 - 2019-07-13
 ### Changed
-- Renamed some functions. 
+- Updated dependencies.
 
 ## 1.0.0 - 2017-01-06
 ### Added
