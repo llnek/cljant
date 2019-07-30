@@ -186,7 +186,7 @@
             z (io/file tmpdir tn)]
         (= "hello" (slurp z))))
 
-  (is (string? "that's all folks!")))
+  (is (string? "end test")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF
