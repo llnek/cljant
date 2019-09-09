@@ -1,4 +1,4 @@
-;; Copyright (c) 2013-2019, Kenneth Leung. All rights reserved.
+;; Copyright © 2013-2019, Kenneth Leung. All rights reserved.
 ;; The use and distribution terms for this software are covered by the
 ;; Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;; which can be found in the file epl-v10.html at the root of this distribution.
@@ -20,11 +20,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;(set! *warn-on-reflection* true)
-(def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
-(def ^:private javac (str
-                       (System/getenv "JAVA_HOME") "/bin/javac"))
-(def
-  ^:private
+(def ^:private
+  tmpdir (io/file (System/getProperty "java.io.tmpdir")))
+(def ^:private
+  javac (str (System/getenv "JAVA_HOME") "/bin/javac"))
+(def ^:private
   javacode
   "package x;
   public class Test  {
@@ -39,69 +39,94 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- ctf<>
+  "Create temp file."
   {:tag File}
   ([] (ctf<> nil))
   ([d] (io/file (or d tmpdir) (uid))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- ctd<>
+  "Create temp dir."
   {:tag File}
   ([] (ctd<> nil))
   ([d] (doto (ctf<> d) (.mkdirs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (deftest czlabtestantclj-test
+
   (is (let [f (ctf<>)
-            _ (spit f "yada yada some-token yoda yoda")
-            _ (a/run*
-                (a/replace
-                  {:file (.getCanonicalPath f)}
-                  [[:replacetoken "some-token"]
-                   [:replacevalue "some-value"]]))
-            s (slurp f)]
-        (cs/includes? s "some-value")))
+            y "yada yada some-token yoda yoda"]
+        (spit f y)
+        (a/run*
+          (a/replace
+            {:file (.getCanonicalPath f)}
+            [[:replacetoken "some-token"]
+             [:replacevalue "some-value"]]))
+        (= (slurp f) "yada yada some-value yoda yoda")))
 
-  (is (let [_ (a/run* (a/hostinfo
-                        {:host "www.google.com"
-                         :prefix "goog"}))
-            m (a/read-properties*)
-            ps (filter #(cs/starts-with? % "goog.") (keys m))]
-        (boolean (not-empty ps))))
+  (is (let []
+        (a/run* (a/hostinfo
+                  {:host "www.google.com"
+                   :prefix "goog"}))
+        (->> (a/read-properties*)
+             keys
+             (filter #(cs/starts-with? % "goog."))
+             not-empty)))
 
-  (is (let [f (.getCanonicalPath (ctf<>))
-            _ (a/run* (a/echoproperties {:destfile f}))]
+  (is (let [f (.getCanonicalPath (ctf<>))]
+        (a/run* (a/echoproperties {:destfile f}))
         (.exists (io/file f))))
 
-  (is (let [f (.getCanonicalPath (ctf<>))
-            _ (a/run* (a/get {:src "http://google.com"
-                              :dest f
-                              :ignoreerrors true
-                              :quiet true}))]
-        (.exists (io/file f))))
+  (is (let [f (.getCanonicalPath (ctf<>))]
+        (a/run* (a/get {:src "https://google.com"
+                        :dest f
+                        :quiet true
+                        :ignoreerrors true}))
+        (> (count (slurp f)) 100)))
 
-  (is (let [f (.getCanonicalPath (ctf<>))
-            _ (a/run* (a/genkey
-                        {:storepass "password"
-                         :keystore f
-                         :alias "mykey"}
-                        [[:dname
-                          [[:param {:name "CN" :value "Joe Blogg"}]
-                           [:param {:name "OU" :value "Acme Lab"}]
-                           [:param {:name "O" :value "Acme Inc."}]
-                           [:param {:name "C" :value "US"}]]]]))]
-        (.exists (io/file f))))
+  (is (let [f (.getCanonicalPath (ctf<>))]
+        (a/run* (a/genkey
+                  {:storepass "password"
+                   :keystore f
+                   :alias "mykey"}
+                  [[:dname
+                    [[:param {:name "CN" :value "Joe Blogg"}]
+                     [:param {:name "OU" :value "Acme Lab"}]
+                     [:param {:name "O" :value "Acme Inc."}]
+                     [:param {:name "C" :value "US"}]]]]))
+        (> (.length (io/file f)) 100)))
+
+  (is (let [d (ctd<>)
+            f (ctf<>)
+            n (.getName f)
+            z (io/file d n)]
+        (spit f "hello")
+        (a/copy-file* f d)
+        (try (= "hello" (slurp z))
+             (finally (io/delete-file z true)
+                      (io/delete-file f true)
+                      (.delete d)))))
+
+  (is (let [d (ctd<>)
+            f (ctf<>)
+            n (.getName f)
+            z (io/file d n)]
+        (spit f "hello")
+        (a/move-file* f d)
+        (try (and (= "hello" (slurp z))
+                  (not (.exists f)))
+             (finally (io/delete-file z true)
+                      (.delete d)))))
 
   (is (let [d (ctd<>)
             f (ctf<>)
             n (.getName f)
             z (io/file d n)
             _ (spit f "hello")
-            _ (a/copy-file* f d)
+            _ (a/move-file* f d)
             ok (= "hello" (slurp z))]
-        (io/delete-file z true)
-        (io/delete-file f true)
-        (.delete d)
-        ok))
+        (a/clean-dir* d)
+        (and ok (not (.exists z)))))
 
   (is (let [d (ctd<>)
             f (ctf<>)
@@ -109,33 +134,9 @@
             z (io/file d n)
             _ (spit f "hello")
             _ (a/move-file* f d)
-            ok (and (= "hello" (slurp z))
-                    (not (.exists f)))]
-        (io/delete-file z true)
-        (.delete d)
-        ok))
-
-  (is (let [d (ctd<>)
-            f (ctf<>)
-            n (.getName f)
-            z (io/file d n)
-            _ (spit f "hello")
-            _ (a/move-file* f d)
-            ok (= "hello" (slurp z))
-            _ (a/clean-dir* d)]
-        (and ok
-             (not (.exists z)))))
-
-  (is (let [d (ctd<>)
-            f (ctf<>)
-            n (.getName f)
-            z (io/file d n)
-            _ (spit f "hello")
-            _ (a/move-file* f d)
-            ok (= "hello" (slurp z))
-            _ (a/delete-dir* d)]
-        (and ok
-             (not (.exists d)))))
+            ok (= "hello" (slurp z))]
+        (a/delete-dir* d)
+        (and ok (not (.exists d)))))
 
   #_
   (is (let [f (ctf<>)
@@ -182,9 +183,8 @@
                               {}
                               [[:path
                                 {:location (.getCanonicalPath out)}]]]])
-                    (a/sleep {:seconds "2"}))
-            z (io/file tmpdir tn)]
-        (= "hello" (slurp z))))
+                    (a/sleep {:seconds "2"}))]
+        (= "hello" (slurp (io/file tmpdir tn)))))
 
   (is (string? "end test")))
 
