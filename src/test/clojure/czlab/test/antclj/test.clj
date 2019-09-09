@@ -37,6 +37,7 @@
   }
   }")
 
+;(println (str "------- " tmpdir))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- ctf<>
   "Create temp file."
@@ -151,8 +152,9 @@
         (and ok ok2)))
 
   (is (let [root (ctd<>)
-            src (ctd<> root)
-            out (ctd<>)
+            src (io/file root "x")
+            out (ctd<> root)
+            _ (.mkdirs out)
             _ (.mkdirs src)
             tn (uid)
             f (io/file src "Test.java")
@@ -160,7 +162,7 @@
             _
             (a/run* (a/javac {:srcdir (.getCanonicalPath root)
                               :destdir (.getCanonicalPath out)
-                              :target "8"
+                              ;:target "11"
                               :executable javac
                               :debugLevel "lines,vars,source"
                               :includeantruntime false
