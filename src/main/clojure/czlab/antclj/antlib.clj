@@ -6,12 +6,13 @@
 ;; the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns ^{:doc "Apache Ant project & task wrappers.
-           The anatomy of an ant task is a xml construct,
-           where the attributes are termed as options and
-           nested elements are treated as vectors inside of
-           a vector."
-      :author "Kenneth Leung"}
+(ns
+  ^{:doc "Apache Ant project & task wrappers.
+         The anatomy of an ant task is a xml construct,
+         where the attributes are termed as options and
+         nested elements are treated as vectors inside of
+         a vector."
+    :author "Kenneth Leung"}
 
   czlab.antclj.antlib
 
@@ -40,8 +41,9 @@
            [clojure.lang APersistentMap])
 
   (:require [clojure.java.io :as io]
-            [clojure.core :as cc]
-            [clojure.string :as cs])
+            [clojure
+             [core :as cc]
+             [string :as cs]])
 
   (:refer-clojure :exclude [apply get sync concat replace]))
 
