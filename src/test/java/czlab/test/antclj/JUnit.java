@@ -19,11 +19,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-/**
- *
- * @author Kenneth Leung
- *
- */
 public class JUnit {
 
   public static junit.framework.Test suite() {

@@ -10,9 +10,6 @@
 
 package czlab.antclj;
 
-/**
- * @author Kenneth Leung
- */
 public class AntClj {
 
 }

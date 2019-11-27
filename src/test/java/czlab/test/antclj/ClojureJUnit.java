@@ -14,9 +14,6 @@ import mikera.cljunit.ClojureTest;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * @author Kenneth Leung
- */
 public class ClojureJUnit extends ClojureTest {
   @Override
   public List<String> namespaces() {

@@ -7,14 +7,13 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  ^{:doc "Apache Ant project & task wrappers.
-         The anatomy of an ant task is a xml construct,
-         where the attributes are termed as options and
-         nested elements are treated as vectors inside of
-         a vector."
-    :author "Kenneth Leung"}
 
   czlab.antclj.antlib
+
+  "Apache Ant project & task wrappers.
+  The anatomy of an ant task is a xml construct,
+  where the attributes are termed as options and
+  nested elements are treated as vectors inside of a vector."
 
   (:import [org.apache.tools.ant.taskdefs.optional.unix Symlink]
            [org.apache.tools.ant.types AbstractFileSet]
@@ -41,9 +40,8 @@
            [clojure.lang APersistentMap])
 
   (:require [clojure.java.io :as io]
-            [clojure
-             [core :as cc]
-             [string :as cs]])
+            [clojure.core :as cc]
+            [clojure.string :as cs])
 
   (:refer-clojure :exclude [apply get sync concat replace]))
 
@@ -53,13 +51,15 @@
 (defn uid ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmacro ^:private do-with [bindings & more]
-  (assert (= 2 (count bindings)))
+(defmacro ^:private do-with
+  [bindings & more]
+  (assert (== 2 (count bindings)))
   (let [a (first bindings)
         b (last bindings)] `(let [~a ~b] ~@more ~a)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (declare cfg-nested)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def ^:private skipped-tasks #{"ant" "antcall" "import" "include"
                                "copydir" "copyfile" "copypath"
@@ -70,13 +70,19 @@
 
 (def ^:private pred-t (constantly true))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmacro ^:private nth?? [c p] `(first (drop (dec ~p) ~c)))
-(defmacro ^:private trap! [& xs] `(throw (Exception. ~@xs)))
+(defmacro ^:private nth??
+  [c p] `(first (drop (dec ~p) ~c)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmacro ^:private trap!
+  [& xs] `(throw (Exception. ~@xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- ctor!
+
   "Create an object from class, and set it to point to the project."
   [^Class cz ^Project pj]
+
   (let
     [^Constructor
      c0 (try (->> (make-array Class 0)
@@ -122,22 +128,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;trick to type hint to avoid reflection warning
-(defmacro ^:private
-  gfdn [d]
+(defmacro ^:private gfdn
+  [d]
   `(.getName ~(with-meta d {:tag 'FeatureDescriptor})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def ^:private
-  create-opstrs ["addConfigured" "add" "create"])
+(def ^:private create-opstrs ["addConfigured" "add" "create"])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def ^:private
-  create-ops (zipmap create-opstrs
-                     (mapv #(count %) create-opstrs)))
+(def ^:private create-ops (zipmap create-opstrs
+                                  (mapv #(count %) create-opstrs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- clj-map
+
   ([m] (clj-map m pred-t))
+
   ([m pred]
    (persistent!
      (reduce
@@ -165,8 +171,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- tst-spec-ops?
+
   "Test for special methods which aggregates nested elements."
   [^MethodDescriptor d]
+
   (let
     [pms (.. d getMethod getParameterTypes)
      mn (gfdn d)
@@ -218,9 +226,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- set-options
+
   "Use reflection to invoke setters -> to set options
   on the pojo: see ref. ant#IntrospectionHelper."
   [^Project pj pojo options]
+
   (let [z (class pojo)
         h (IntrospectionHelper/getHelper pj z)]
     (doseq [[k v]
@@ -232,6 +242,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- projcomp<>
+
   "Configure a project component."
   {:tag ProjectComponent}
 
@@ -246,10 +257,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- nest
+
   "Element is like [:fileset {:a b :c d} [[nested ...][nested ...]]].
   At the end of this function, the parent would have *added* this
   element as a child object"
   [pj par elem aggrs]
+
   (let [s (cs/lower-case (name (first elem)))
         dc (or (cc/get aggrs (str "addconfigured" s))
                (cc/get aggrs (str "add" s))
@@ -270,10 +283,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- cfg-nested
+
   "*nested* typically is a vector of vectors.  Each vector models
   an xml element.  However, a special case is when nested is a
   string in which case the method addText is called."
   [pj par nested]
+
   (let [pz (class par)
         ;; if we find a new class, bean it and cache it
         b (cc/get @_beans pz)
@@ -308,10 +323,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- config-task
+
   "Reify and configure actual ant tasks."
   ^Task [^Project pj
          ^Target target
          {:keys [tname ttype options nested]}]
+
   (do-with
     [tk (ctask<> pj ttype tname)]
     (->> (doto tk
@@ -323,9 +340,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- proj-ant-tasks
+
   "Bind all the tasks to a target and a project."
   ^Target
   [^String target tasks]
+
   (do-with [tg (Target.)]
     (let [pj @dftprj]
       (.setName tg (or target ""))
@@ -333,30 +352,30 @@
       (doseq [t tasks] (config-task pj tg t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn- XXproj-ant-tasks*
-  "Bind all the tasks to a target and a project."
-  ^Target
-  [target & tasks] (proj-ant-tasks target tasks))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- run-target
+
   "Run ant target."
   [target tasks]
+
   (-> (proj-ant-tasks target tasks) exec-target))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run-target*
+
   "Run ant target."
   [^String target & tasks] (run-target target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run*
+
   "Run ant tasks." [& tasks] (run-target "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private ant-task<>
+
   "Generate wrapper function for an ant task."
   [pj sym docstr func]
+
   (let [s (str func)
         tm (cs/lower-case
              (subs s (+ 1
@@ -369,16 +388,18 @@
           (~sym ~'options nil)))
        ([] (~sym nil nil))
        ([~'options ~'nestedElements]
-        (hash-map :tname ~tm
-                  :ttype ~s
-                  :options (or ~'options {})
-                  :nested (or ~'nestedElements []))))))
+        (array-map :tname ~tm
+                   :ttype ~s
+                   :options (or ~'options {})
+                   :nested (or ~'nestedElements []))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private decl-ant-tasks
+
   "Introspect the default project and
   cache all registered ant tasks."
   [pj]
+
   (let [ts (mapv #(symbol %) (keys _tasks))]
     `(do ~@(map (fn [a]
                   `(ant-task<> ~pj ~a "" ~a)) ts))))
@@ -388,8 +409,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn read-properties*
+
   "Read all ant properties."
   []
+
   (let [f (io/file tmpdir (uid))
         ps (java.util.Properties.)]
     (run* (echoproperties
@@ -400,8 +423,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn clean-dir*
+
   "Clean an existing dir or create it."
+
   ([d] (clean-dir* d nil))
+
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
@@ -416,8 +442,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-dir*
+
   "Remove a directory."
+
   ([d] (delete-dir* d nil))
+
   ([d {:keys [quiet]
        :or {quiet true}}]
    (let [dir (io/file d)]
@@ -430,29 +459,38 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn copy-file*
+
   "Copy a file to the target folder."
   [file toDir]
+
   (.mkdirs (io/file toDir))
   (run* (copy {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn move-file*
+
   "Move a file to the target folder."
   [file toDir]
+
   (.mkdirs (io/file toDir))
   (run* (move {:file file :todir toDir})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-link*
+
   "Delete a file system symbolic link."
   [link]
+
   (run* (symlink {:action "delete" :link link})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-link*
+
   "Create a file system symbolic link."
+
   ([link target]
    (create-link* link target true))
+
   ([link target overwrite?]
    (run* (symlink {:overwrite (boolean overwrite?)
                    :action "single"
@@ -461,7 +499,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn disable-ant-logger*
-  "Remove build logger" []
+
+  "Remove build logger."
+  []
+
   (if
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))
@@ -469,7 +510,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn enable-ant-logger*
-  "Add build logger" []
+
+  "Add build logger."
+  []
+
   (if-not
     (-> (.getBuildListeners ^Project @dftprj)
         (.contains _ansi-logger_))
