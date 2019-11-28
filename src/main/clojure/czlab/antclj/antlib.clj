@@ -400,11 +400,13 @@
   cache all registered ant tasks."
   [pj]
 
-  (let [ts (mapv #(symbol %) (keys _tasks))]
+  (let [ts (map #(symbol %) (keys _tasks))]
     `(do ~@(map (fn [a]
                   `(ant-task<> ~pj ~a "" ~a)) ts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;this is the key process - extracting task information from
+;ant.jar
 (decl-ant-tasks @dftprj)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
