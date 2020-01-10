@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
-## 1.0.4 - 2019-07-13
+## 1.0.4 - 2020-01-13
 ### Changed
 - Updated dependencies.
 

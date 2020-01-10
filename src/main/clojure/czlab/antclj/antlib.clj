@@ -1,4 +1,4 @@
-;; Copyright © 2013-2019, Kenneth Leung. All rights reserved.
+;; Copyright © 2013-2020, Kenneth Leung. All rights reserved.
 ;; The use and distribution terms for this software are covered by the
 ;; Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;; which can be found in the file epl-v10.html at the root of this distribution.
@@ -48,7 +48,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;(set! *warn-on-reflection* true)
 (def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
-(defn uid ^String [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
+(defn uid
+
+  ^{:arglists '([])
+    :tag String
+    :doc "Generate an unique identifier."}
+
+  [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private do-with
@@ -362,13 +368,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run-target*
 
-  "Run ant target."
+  ^{:arglists '([target & tasks])
+    :doc "Run an ant target."}
+
   [^String target & tasks] (run-target target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run*
 
-  "Run ant tasks." [& tasks] (run-target "" tasks))
+  ^{:arglists '([& tasks])
+    :doc "Run these ant tasks."}
+
+  [& tasks] (run-target "" tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private ant-task<>
@@ -412,7 +423,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn read-properties*
 
-  "Read all ant properties."
+  ^{:arglists '([])
+    :doc "Read all ant properties."}
+
   []
 
   (let [f (io/file tmpdir (uid))
@@ -426,7 +439,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn clean-dir*
 
-  "Clean an existing dir or create it."
+  ^{:arglists '([d][d options])
+    :doc "Clean an existing dir or create it."}
 
   ([d] (clean-dir* d nil))
 
@@ -445,7 +459,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-dir*
 
-  "Remove a directory."
+  ^{:arglists '([d][d options])
+    :doc "Remove a directory."}
 
   ([d] (delete-dir* d nil))
 
@@ -462,7 +477,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn copy-file*
 
-  "Copy a file to the target folder."
+  ^{:arglists '([file toDir])
+    :doc "Copy a file to the target folder."}
+
   [file toDir]
 
   (.mkdirs (io/file toDir))
@@ -471,7 +488,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn move-file*
 
-  "Move a file to the target folder."
+  ^{:arglists '([file toDir])
+    :doc "Move a file to the target folder."}
+
   [file toDir]
 
   (.mkdirs (io/file toDir))
@@ -480,7 +499,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-link*
 
-  "Delete a file system symbolic link."
+  ^{:arglists '([link])
+    :doc "Delete a file system symbolic link."}
+
   [link]
 
   (run* (symlink {:action "delete" :link link})))
@@ -488,7 +509,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-link*
 
-  "Create a file system symbolic link."
+  ^{:arglists '([link target]
+                [link target overwrite?])
+    :doc "Create a file system symbolic link."}
 
   ([link target]
    (create-link* link target true))
@@ -502,7 +525,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn disable-ant-logger*
 
-  "Remove build logger."
+  ^{:arglists '([])
+    :doc "Remove build logger."}
+
   []
 
   (if
@@ -513,7 +538,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn enable-ant-logger*
 
-  "Add build logger."
+  ^{:arglists '([])
+    :doc "Add build logger."}
+
   []
 
   (if-not
@@ -523,4 +550,5 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;EOF
+
 

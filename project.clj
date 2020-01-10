@@ -27,9 +27,8 @@
                  [junit/junit "4.12" :scope "test"]
                  [org.apache.ant/ant "1.10.7"]]
 
-  :plugins [[cider/cider-nrepl "0.22.2"]
-            [lein-codox "0.10.7"]
-            [lein-cprint "1.3.1"]]
+  :plugins [[cider/cider-nrepl "0.22.4"]
+            [lein-codox "0.10.7"]]
 
   :profiles {:provided {:dependencies
                         [[org.clojure/clojure "1.10.1" :scope "provided"]
