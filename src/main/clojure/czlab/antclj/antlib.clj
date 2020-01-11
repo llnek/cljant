@@ -50,11 +50,12 @@
 (def ^:private tmpdir (io/file (System/getProperty "java.io.tmpdir")))
 (defn uid
 
-  ^{:arglists '([])
-    :tag String
-    :doc "Generate an unique identifier."}
+  "Generate an unique identifier."
+  {:tag String
+   :arglists '([])}
+  []
 
-  [] (.replaceAll (str (UID.)) "[:\\-]+" ""))
+  (.replaceAll (str (UID.)) "[:\\-]+" ""))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro ^:private do-with
@@ -368,16 +369,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run-target*
 
-  ^{:arglists '([target & tasks])
-    :doc "Run an ant target."}
+  "Run an ant target."
+  {:arglists '([target & tasks])}
 
   [^String target & tasks] (run-target target tasks))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn run*
 
-  ^{:arglists '([& tasks])
-    :doc "Run these ant tasks."}
+  "Run these ant tasks."
+  {:arglists '([& tasks])}
 
   [& tasks] (run-target "" tasks))
 
@@ -423,9 +424,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn read-properties*
 
-  ^{:arglists '([])
-    :doc "Read all ant properties."}
-
+  "Read all ant properties."
+  {:arglists '([])}
   []
 
   (let [f (io/file tmpdir (uid))
@@ -439,10 +439,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn clean-dir*
 
-  ^{:arglists '([d][d options])
-    :doc "Clean an existing dir or create it."}
+  "Clean an existing dir or create it."
+  {:arglists '([d]
+               [d options])}
 
-  ([d] (clean-dir* d nil))
+  ([d]
+   (clean-dir* d nil))
 
   ([d {:keys [quiet]
        :or {quiet true}}]
@@ -459,10 +461,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-dir*
 
-  ^{:arglists '([d][d options])
-    :doc "Remove a directory."}
+  "Remove a directory."
+  {:arglists '([d]
+               [d options])}
 
-  ([d] (delete-dir* d nil))
+  ([d]
+   (delete-dir* d nil))
 
   ([d {:keys [quiet]
        :or {quiet true}}]
@@ -477,9 +481,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn copy-file*
 
-  ^{:arglists '([file toDir])
-    :doc "Copy a file to the target folder."}
-
+  "Copy a file to the target folder."
+  {:arglists '([file toDir])}
   [file toDir]
 
   (.mkdirs (io/file toDir))
@@ -488,9 +491,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn move-file*
 
-  ^{:arglists '([file toDir])
-    :doc "Move a file to the target folder."}
-
+  "Move a file to the target folder."
+  {:arglists '([file toDir])}
   [file toDir]
 
   (.mkdirs (io/file toDir))
@@ -499,9 +501,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn delete-link*
 
-  ^{:arglists '([link])
-    :doc "Delete a file system symbolic link."}
-
+  "Delete a file system symbolic link."
+  {:arglists '([link])}
   [link]
 
   (run* (symlink {:action "delete" :link link})))
@@ -509,9 +510,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-link*
 
-  ^{:arglists '([link target]
-                [link target overwrite?])
-    :doc "Create a file system symbolic link."}
+  "Create a file system symbolic link."
+  {:arglists '([link target]
+               [link target overwrite?])}
 
   ([link target]
    (create-link* link target true))
@@ -525,9 +526,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn disable-ant-logger*
 
-  ^{:arglists '([])
-    :doc "Remove build logger."}
-
+  "Remove build logger."
+  {:arglists '([])}
   []
 
   (if
@@ -538,9 +538,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn enable-ant-logger*
 
-  ^{:arglists '([])
-    :doc "Add build logger."}
-
+  "Add build logger."
+  {:arglists '([])}
   []
 
   (if-not
