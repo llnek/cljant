@@ -8,9 +8,9 @@
  * You must not remove this notice, or any other, from this software.
  */
 
-package czlab.antclj;
+package czlab.cljant;
 
-public class AntClj {
+public class CljAnt {
 
 }
 

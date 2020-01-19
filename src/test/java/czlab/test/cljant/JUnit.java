@@ -8,7 +8,7 @@
  * You must not remove this notice, or any other, from this software.
  */
 
-package czlab.test.antclj;
+package czlab.test.cljant;
 
 import static org.junit.Assert.assertTrue;
 import junit.framework.JUnit4TestAdapter;

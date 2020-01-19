@@ -8,7 +8,7 @@
  * You must not remove this notice, or any other, from this software.
  */
 
-package czlab.test.antclj;
+package czlab.test.cljant;
 
 import mikera.cljunit.ClojureTest;
 import java.util.Arrays;
@@ -18,7 +18,7 @@ public class ClojureJUnit extends ClojureTest {
   @Override
   public List<String> namespaces() {
     return Arrays.asList(new String[] {
-      "czlab.test.antclj.test"
+      "czlab.test.cljant.test"
     });
   }
 }

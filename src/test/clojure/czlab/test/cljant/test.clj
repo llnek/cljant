@@ -7,9 +7,9 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  czlab.test.antclj.test
+  czlab.test.cljant.test
 
-  (:require [czlab.antclj.antlib :as a :refer [uid]]
+  (:require [czlab.cljant.antlib :as a :refer [uid]]
             [clojure.string :as cs]
             [clojure.java.io :as io])
 
@@ -54,7 +54,7 @@
   ([d] (doto (ctf<> d) (.mkdirs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(deftest czlabtestantclj-test
+(deftest czlabtestcljant-test
 
   (is (let [f (ctf<>)
             y "yada yada some-token yoda yoda"]

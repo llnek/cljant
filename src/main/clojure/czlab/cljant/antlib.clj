@@ -8,7 +8,7 @@
 
 (ns
 
-  czlab.antclj.antlib
+  czlab.cljant.antlib
 
   "Apache Ant project & task wrappers.
   The anatomy of an ant task is a xml construct,

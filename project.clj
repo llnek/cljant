@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defproject io.czlab/antclj "1.0.4"
+(defproject io.czlab/cljant "2.0.0"
 
   ;;add these for maven deployment
   :Xpom-addition
@@ -16,7 +16,7 @@
 
   :license {:url "http://www.eclipse.org/legal/epl-v10.html"
             :name "Eclipse Public License"}
-  :url "https://github.com/llnek/antclj"
+  :url "https://github.com/llnek/cljant"
 
   :description "Apache ant wrapped in clojure."
 

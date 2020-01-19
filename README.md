@@ -1,16 +1,16 @@
-# antclj
+# cljant
 
-[![Build Status](https://travis-ci.org/llnek/antclj.svg?branch=master)](https://travis-ci.org/llnek/antclj)
+[![Build Status](https://travis-ci.org/llnek/cljant.svg?branch=master)](https://travis-ci.org/llnek/cljant)
 
 [Apache ant][1] is a venerable java build tool providing numerous useful and 
-robust tasks, ranging from file system operations to os operations.  **antclj** 
+robust tasks, ranging from file system operations to os operations.  **cljant** 
 provides a simple way to access those tasks in clojure by treating each as a function.
 
 ## Installation
 
 Add the following dependency to your `project.clj` file:
 
-    [io.czlab/antclj "1.0.4"]
+    [io.czlab/cljant "2.0.0"]
 
 ## Documentation
 
@@ -20,7 +20,7 @@ Add the following dependency to your `project.clj` file:
 
 ```clojure
 (ns demo.core
-  (:require [czlab.antclj.antlib :as a]))
+  (:require [czlab.cljant.antlib :as a]))
 
 (defn compileAndRun [srcDir destDir]
   (a/run*
@@ -65,7 +65,7 @@ your option) any later version.
 <!--- links -->
 [1]: http://ant.apache.org/
 <!--- links (repos) -->
-[CHANGELOG]: https://github.com/llnek/antclj/releases
-[GitHub issues page]: https://github.com/llnek/antclj/issues
-[GitHub contributors page]: https://github.com/llnek/antclj/graphs/contributors
+[CHANGELOG]: https://github.com/llnek/cljant/releases
+[GitHub issues page]: https://github.com/llnek/cljant/issues
+[GitHub contributors page]: https://github.com/llnek/cljant/graphs/contributors
 
