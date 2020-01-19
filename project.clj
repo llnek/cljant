@@ -3,12 +3,12 @@
 (defproject io.czlab/antclj "1.0.4"
 
   ;;add these for maven deployment
-  :pom-addition
+  :Xpom-addition
   [:developers [:developer
                 [:name "Kenneth Leung"]
                 [:url "https://github.com/llnek"]]]
   ;;trick lein to generate javadoc and sources artifacts
-  :classifiers {:javadoc {} :sources {}}
+  :Xclassifiers {:javadoc {} :sources {}}
   :Xdeploy-repositories
   [["releases" {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"}
     "snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"}]]
