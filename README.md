@@ -10,7 +10,7 @@ provides a simple way to access those tasks in clojure by treating each as a fun
 
 Add the following dependency to your `project.clj` file:
 
-    [io.czlab/cljant "2.0.0"]
+    [io.czlab/cljant "2.0.1"]
 
 ## Documentation
 

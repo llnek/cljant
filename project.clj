@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-(defproject io.czlab/cljant "2.0.0"
+(defproject io.czlab/cljant "2.0.1"
 
   ;;add these for maven deployment
   :Xpom-addition
@@ -46,7 +46,8 @@
   :test-paths ["src/test/clojure"]
 
   :jvm-opts ["-Dlog4j.configurationFile=file:attic/log4j2.xml"]
-  :javac-options [;"-source" "12"
+  :javac-options ["-source" "11"
+                  "-target" "11"
                   "-Xlint:unchecked" "-Xlint:-options" "-Xlint:deprecation"])
 
 
